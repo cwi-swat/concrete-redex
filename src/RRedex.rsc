@@ -9,7 +9,10 @@ syntax Ctx
   = hole: "☐"
   ;
 
+// configurations
 private alias C = tuple[Ctx ctx, Tree tree];
+
+// the result of a rule
 alias CR = list[C];
 
 // to be extended
@@ -28,7 +31,9 @@ void run(type[&T<:Tree] typ, &T conf, set[str] rules) {
   while (!stuck) {
     println("ITER <i>");
     lrel[C, C] steps = step(conf, rules);
-    println("BRANCH: <size(steps)>");
+    if (size(steps) > 1) {
+      println("WARNING: non-determinism");
+    }
     if (<<Ctx ctx1, Tree redex>, <Ctx ctx2, Tree reduct>> <- steps) {
       println("Redex: <redex>");
       println("Reduct: <reduct>");
@@ -93,28 +98,29 @@ rel[Tree, Tree] split(Tree t) {
         continue nextProd;
       }
 
-      int rec = -1;
+      int ctxPos = -1;
       for (int i <- [0..size(ctx.symbols)]) {
         if (ctx.symbols[i] == sort("Ctx")) {
-          rec = i;
+          ctxPos = i;
         }
         else if (!match(noLabel(ctx.symbols[i]), term.args[i])) {
           continue nextProd;
         }
       }
       
-      // prods are compatible modulo ctx recursive argument at rec position
-      assert rec != -1;
+      // prods are compatible modulo ctx ctxPosursive argument at ctxPos position
+      assert ctxPos != -1;
       
       
-      splitRec(term.args[rec], (Tree subAlt, Tree redex) {
-         ctxProd = ctx[attributes=ctx.attributes + {\tag(term.prod)}];
-         k(appl(ctxProd, term.args[0..rec] + [subAlt] + term.args[rec+1..]), redex);
+      splitRec(term.args[ctxPos], (Tree subAlt, Tree redex) {
+        // put original production inside the ctx production.
+        ctxProd = ctx[attributes=ctx.attributes + {\tag(term.prod)}];
+        k(appl(ctxProd, term.args[0..ctxPos] + [subAlt] + term.args[ctxPos+1..]), redex);
       });
       
     }
     // this means, no prod could be used to split term
-    // hence take empty context (todo: make indep of Ctx name)
+    // hence take empty context 
     Tree empty = appl(prod(label("hole",sort("Ctx")),[lit("☐")],{}),[
              appl(prod(lit("☐"),[\char-class([range(9744,9744)])],{}),[char(9744)])]);
     k(empty, term); // 
