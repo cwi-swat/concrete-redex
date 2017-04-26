@@ -1,0 +1,21 @@
+
+variables
+  t, t1, t2, t3: Term
+
+rules
+
+t' ~> t'
+-------------------- [IfTrue]  
+E[if true then C[t1] else t2 fi] ~> E[t2].
+
+[IfFalse] if false then t2 else t3 fi ~> t3.
+
+[Pred] pred(succ(t)) ~> t 
+            when isValue(t).
+
+[IsZero0] isZero(z) ~> true.
+
+[IsZero] isZero(succ(t)) ~> false 
+           when isValue(t).
+
+
