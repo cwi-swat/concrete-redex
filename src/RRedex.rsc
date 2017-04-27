@@ -33,11 +33,11 @@ default CR rule(_, _, Tree t) = [];
 
 
 lrel[&T, &T] step(type[&T<:Tree] typ, &T conf, set[str] rules)
-  =  [ <conf, plug(typ, ctx2, reduct)> | <Ctx ctx1, Tree redex> <- split(conf)
+  =  [ <conf, plug(typ, ctx2, reduct)> | <Ctx ctx1, Tree redex> <- split(#Ctx, conf)
      , str r <- rules, <Ctx ctx2, Tree reduct> <- rule(r, ctx1, redex) ];   
 
 Trace step(Tree conf, set[str] rules)
-  = [ <<ctx1, redex>, r, <ctx2, reduct>> | <Ctx ctx1, Tree redex> <- split(conf)
+  = [ <<ctx1, redex>, r, <ctx2, reduct>> | <Ctx ctx1, Tree redex> <- split(#Ctx, conf)
      , str r <- rules, <Ctx ctx2, Tree reduct> <- rule(r, ctx1, redex) ];   
 
 alias Stepper = tuple[bool() hasNext,  Trace() next];
@@ -84,7 +84,6 @@ rel[&T, str, Tree, &T] traceGraph(type[&T<:Tree] typ, &T conf, set[str] rules) {
   return trace;
 }
 
-// todo: make something that generates trace graphs
 void run(type[&T<:Tree] typ, &T conf, set[str] rules) {
   
   int i = 0;
@@ -154,8 +153,8 @@ default bool match(Symbol _, Tree _) = false;
 Symbol noLabel(label(_, Symbol s)) = s;
 default Symbol noLabel(Symbol s) = s;  
   
-rel[Tree, Tree] split(Tree t) {
-  set[Production] prods = (#Ctx).definitions[sort("Ctx")].alternatives;
+rel[Tree, Tree] split(type[&T<:Tree] ctxType, Tree t) {
+  set[Production] prods = ctxType.definitions[ctxType.symbol].alternatives;
   
   void splitRec(Tree term, void(Tree, Tree) k) {
     nextProd: for (Production ctx <- prods) {
@@ -169,7 +168,7 @@ rel[Tree, Tree] split(Tree t) {
 
       int ctxPos = -1;
       for (int i <- [0..size(ctx.symbols)]) {
-        if (ctx.symbols[i] == sort("Ctx")) {
+        if (ctx.symbols[i] == ctxType.symbol) {
           assert ctxPos == -1: "multiple holes in context";
           ctxPos = i;
         }
@@ -192,7 +191,7 @@ rel[Tree, Tree] split(Tree t) {
     
     // coming here means, no prod could be used to split term
     // hence make empty context; and term becomes redex
-    Tree empty = appl(prod(label("hole",sort("Ctx")),[lit("☐")],{}),[
+    Tree empty = appl(prod(label("hole",ctxType.symbol),[lit("☐")],{}),[
              appl(prod(lit("☐"),[\char-class([range(9744,9744)])],{}),[char(9744)])]);
     k(empty, term); // 
   }
