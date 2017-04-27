@@ -4,6 +4,17 @@ import ParseTree;
 import List;
 import IO;
 
+/*
+ * - matching list patterns e.g.: Value, {Expr ","}*
+ * - matching treeof Expr* should match Value* if injection between value->expr
+ * - look over arbitrary levels of injections not just one.
+ *
+ * - trace graphs
+ * - parameterize Ctx
+ * - parameterize final configuration predicate
+ * - make things generic on "conf"
+ */
+
 // to be extended
 syntax Ctx
   = hole: "☐"
@@ -15,13 +26,56 @@ private alias C = tuple[Ctx ctx, Tree tree];
 // the result of a rule
 alias CR = list[C];
 
+alias Trace = lrel[C from, str rule, C to];
+
 // to be extended
 default CR rule(_, _, Tree t) = [];
 
 
-lrel[C,C] step(Tree conf, set[str] rules)
-  = [ <<ctx1, redex>, <ctx2, reduct>> | <Ctx ctx1, Tree redex> <- split(conf)
+lrel[&T, &T] step(type[&T<:Tree] typ, &T conf, set[str] rules)
+  =  [ <conf, plug(typ, ctx2, reduct)> | <Ctx ctx1, Tree redex> <- split(conf)
      , str r <- rules, <Ctx ctx2, Tree reduct> <- rule(r, ctx1, redex) ];   
+
+Trace step(Tree conf, set[str] rules)
+  = [ <<ctx1, redex>, r, <ctx2, reduct>> | <Ctx ctx1, Tree redex> <- split(conf)
+     , str r <- rules, <Ctx ctx2, Tree reduct> <- rule(r, ctx1, redex) ];   
+
+alias Stepper = tuple[bool() hasNext,  Trace() next];
+
+Stepper stepper(type[&T<:Tree] typ, &T conf, set[str] rules) {
+  bool stuck = false;
+  Trace steps = [];
+  bool hasNext() {
+    Trace steps = step(conf, rules);
+    return steps != [];
+  }
+  
+  Trace next() {
+    conf = plug(typ);
+    return steps;
+  }
+
+}
+
+rel[&T, str, &T] traceGraph(type[&T<:Tree] typ, &T conf, set[str] rules) {
+  rel[&T, str, &T] trace = {};
+  set[&T] confs = {conf};
+  while (confs != {}) {
+    set[&T] newConfs = {};
+    for (&T c1 <- confs) {
+      Trace steps = step(c1, rules);
+      for (<_, str rule, <Ctx ctx2, Tree reduct>> <- steps) {
+        if (&T c2 := plug(typ, ctx2, reduct)) {
+          trace += <c1, rule, c2>;
+          newConfs += c2;
+        }
+        else throw "Error";
+      }
+    }
+    confs = newConfs;
+  }
+  return trace;
+}
 
 // todo: make something that generates trace graphs
 void run(type[&T<:Tree] typ, &T conf, set[str] rules) {
@@ -30,11 +84,12 @@ void run(type[&T<:Tree] typ, &T conf, set[str] rules) {
   bool stuck = false;
   while (!stuck) {
     println("ITER <i>");
-    lrel[C, C] steps = step(conf, rules);
+    Trace steps = step(conf, rules);
     if (size(steps) > 1) {
       println("WARNING: non-determinism");
     }
-    if (<<Ctx ctx1, Tree redex>, <Ctx ctx2, Tree reduct>> <- steps) {
+    if (<<Ctx ctx1, Tree redex>, str r,  <Ctx ctx2, Tree reduct>> <- steps) {
+      println("Rule: <r>");
       println("Redex: <redex>");
       println("Reduct: <reduct>");
       conf = plug(typ, ctx2, reduct);
@@ -101,6 +156,7 @@ rel[Tree, Tree] split(Tree t) {
       int ctxPos = -1;
       for (int i <- [0..size(ctx.symbols)]) {
         if (ctx.symbols[i] == sort("Ctx")) {
+          assert ctxPos == -1: "multiple holes in context";
           ctxPos = i;
         }
         else if (!match(noLabel(ctx.symbols[i]), term.args[i])) {
@@ -108,7 +164,7 @@ rel[Tree, Tree] split(Tree t) {
         }
       }
       
-      // prods are compatible modulo ctx ctxPosursive argument at ctxPos position
+      // comming here means prods are compatible modulo ctx recursive argument at ctxPos position
       assert ctxPos != -1;
       
       
@@ -119,8 +175,9 @@ rel[Tree, Tree] split(Tree t) {
       });
       
     }
-    // this means, no prod could be used to split term
-    // hence take empty context 
+    
+    // coming here means, no prod could be used to split term
+    // hence make empty context; and term becomes redex
     Tree empty = appl(prod(label("hole",sort("Ctx")),[lit("☐")],{}),[
              appl(prod(lit("☐"),[\char-class([range(9744,9744)])],{}),[char(9744)])]);
     k(empty, term); // 

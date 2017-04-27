@@ -33,7 +33,7 @@ syntax Conf
   
   
 Conf example() 
-  = (Conf)`(x := 1; y := 2; if x \<= y then x := x + 4 else y := 0 fi, [x ↦ 0, y ↦ 0])`;
+  = (Conf)`(x := 1; y := 2; if x \<= y then x := x + y else y := 0 fi, [x ↦ 0, y ↦ 0])`;
 
 bool isDefined(Id x, (State)`[<{VarInt ","}* _>, <Id y> ↦ <Int i>, <{VarInt ","}* _>]`)
   = true
@@ -103,7 +103,15 @@ CR rule("assign", Ctx c, (Stmt)`<Id x> := <Int i>`)
     isDefined(x, c.state);
   
 
+rel[Conf,str,Conf] traceConf(Conf c) = traceGraph(#Conf, c, {"leq", "seq", "if-true",
+  "if-false", "lookup", "assign", "add", "div", "while", "not-false",
+  "not-true", "and-true", "and-false"}); 
+
 void runConf(Conf c) = run(#Conf, c, {"leq", "seq", "if-true",
+  "if-false", "lookup", "assign", "add", "div", "while", "not-false",
+  "not-true", "and-true", "and-false"}); 
+
+lrel[Conf,Conf] stepConf(Conf c) = step(#Conf, c, {"leq", "seq", "if-true",
   "if-false", "lookup", "assign", "add", "div", "while", "not-false",
   "not-true", "and-true", "and-false"}); 
 
