@@ -57,17 +57,24 @@ Stepper stepper(type[&T<:Tree] typ, &T conf, set[str] rules) {
 
 }
 
-rel[&T, str, &T] traceGraph(type[&T<:Tree] typ, &T conf, set[str] rules) {
-  rel[&T, str, &T] trace = {};
+&T removeFocus(&T<:Tree t) {
+  return visit (t) {
+    case a:appl(prod(Symbol d, list[Symbol] ss, {*as, \tag("category"("Focus"))}), list[Tree] args) 
+      => appl(prod(d, ss, {*as}), args) 
+  }
+}
+
+rel[&T, str, Tree, &T] traceGraph(type[&T<:Tree] typ, &T conf, set[str] rules) {
+  rel[&T, str, Tree, &T] trace = {};
   set[&T] confs = {conf};
   while (confs != {}) {
     set[&T] newConfs = {};
     for (&T c1 <- confs) {
       Trace steps = step(c1, rules);
-      for (<_, str rule, <Ctx ctx2, Tree reduct>> <- steps) {
+      for (<<_, Tree redex>, str rule, <Ctx ctx2, Tree reduct>> <- steps) {
         if (&T c2 := plug(typ, ctx2, reduct)) {
-          trace += <c1, rule, c2>;
-          newConfs += c2;
+          trace += <c1, rule, redex, c2>;
+          newConfs += c2; //removeFocus(c2);
         }
         else throw "Error";
       }
@@ -115,11 +122,18 @@ list[Tree] injectIfNeeded(list[Symbol] syms, list[Tree] args) {
 }
 
 
+anno bool Tree@reduct;
+
 &T plug(type[&T<:Tree] typ, Tree ctx, Tree term) {
+  Tree focused(Tree t) {
+    t.prod.attributes += {\tag("category"("Focus"))};
+    return t;
+  }
+
   Tree t = visit (ctx) {
     case Tree aCtx => appl(p, injectIfNeeded(p.symbols, aCtx.args))
       when Ctx _ := aCtx, \tag(Production p) <- aCtx.prod.attributes
-    case Tree h => term
+    case Tree h => term[@reduct=true] //focused(term)
       when h is hole
   };
 
