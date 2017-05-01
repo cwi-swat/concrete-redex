@@ -50,21 +50,21 @@ Conf example()
           '  fi`;
 
 CR rule("lookup", c:(C)`<State s> ⊢ <S _>`, (AExp)`<Id x>`)
-  = [<c, (AExp)`<Int i>`>]
+  = <c, (AExp)`<Int i>`>
   when 
     isDefined(x, s), 
     Int i := lookup(x, s); 
 
 
 CR rule("add", C c, (AExp)`<Int i1> + <Int i2>`) 
-  = [<c, (AExp)`<Int i>`>] 
+  = <c, (AExp)`<Int i>`> 
   when
     int n1 := toInt("<i1>"),
     int n2 := toInt("<i2>"),
     Int i := [Int]"<n1 + n2>";
 
 CR rule("div", C c, (AExp)`<Int i1> / <Int i2>`) 
-  = [<c, (AExp)`<Int i>`>]
+  = <c, (AExp)`<Int i>`>
   when
     int n1 := toInt("<i1>"),
     int n2 := toInt("<i2>"),
@@ -72,39 +72,38 @@ CR rule("div", C c, (AExp)`<Int i1> / <Int i2>`)
 
 
 CR rule("leq", C c, (BExp)`<Int i1> \<= <Int i2>`)
-  = [<c, toInt("<i1>") <= toInt("<i2>") ? (BExp)`true` : (BExp)`false`>];
+  = <c, toInt("<i1>") <= toInt("<i2>") ? (BExp)`true` : (BExp)`false`>;
 
 CR rule("not-false", C c, (BExp)`not false`)
-  = [<c, (BExp)`true`>];
+  = <c, (BExp)`true`>;
 
 CR rule("not-true", C c, (BExp)`not true`)
-  = [<c, (BExp)`false`>];
+  = <c, (BExp)`false`>;
   
 CR rule("and-true", C c, (BExp)`true and <BExp b>`)
-  = [<c, b>];
+  = <c, b>;
 
 CR rule("and-false", C c, (BExp)`false and <BExp b>`)
-  = [<c, (BExp)`false`>];
+  = <c, (BExp)`false`>;
 
 CR rule("seq", C c, (Stmt)`skip; <Stmt s2>`)
-  = [<c, s2>];
+  = <c, s2>;
 
 CR rule("if-true", C c, (Stmt)`if true then <Stmt s1> else <Stmt s2> fi`)
-  = [<c, s1>];
+  = <c, s1>;
 
 CR rule("if-false", C c, (Stmt)`if false then <Stmt s1> else <Stmt s2> fi`)
-  = [<c, s2>];
+  = <c, s2>;
 
 CR rule("while", C c, (Stmt)`while <BExp b> do <Stmt s> od`)
-  = [<c, (Stmt)`if <BExp b> then <Stmt s>; while <BExp b> do <Stmt s> od else skip fi`>];
+  = <c, (Stmt)`if <BExp b> then <Stmt s>; while <BExp b> do <Stmt s> od else skip fi`>;
 
 
 CR rule("assign", (C)`<State s> ⊢ <S c>`, (Stmt)`<Id x> := <Int i>`)
-  = [<(C)`<State s2> ⊢ <S c>`, (Stmt)`skip`>]
+  = <(C)`<State s2> ⊢ <S c>`, (Stmt)`skip`>
   when 
     isDefined(x, s), 
     State s2 := update(x, i, s);
-  
 
 rel[Conf,str,Tree,Conf] traceConf(Conf c) = viewableTraceGraph(#Conf, c, [#C, #S, #E], {"leq", "seq", "if-true",
   "if-false", "lookup", "assign", "add", "div", "while", "not-false",

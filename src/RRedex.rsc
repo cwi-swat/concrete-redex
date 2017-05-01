@@ -16,19 +16,24 @@ import Set;
  */
 
 // result of rule function
-alias CR = lrel[Tree,Tree];
-
+alias CR = tuple[Tree context, Tree reduct];
 
 // to be extended
-default CR rule(str _, Tree _, Tree _) = [];
+default CR rule(str _, Tree _, Tree _) = dummy;
+
+private tuple[Tree,Tree] dummy 
+  = <appl(prod(sort("null"), [], {}), [char(110),char(117),char(108),char(108)]),
+    appl(prod(sort("null"), [], {}), [char(110),char(117),char(108),char(108)])>;
 
 alias Trace = rel[tuple[Tree,Tree] from, str rule, tuple[Tree, Tree] to];
 
 Trace reductions(rel[Tree,Tree] matches, set[str] rules)
-  = { <<ctx1, redex>, r, <ctx2, reduct>> |
-      <Tree ctx1, Tree redex> <- matches, !(ctx1 is hole),
+  = { <<ctx, redex>, r, <cr.context, cr.reduct>> |
+      <Tree ctx, Tree redex> <- matches, !(ctx is hole),
       str r <- rules,
-      <Tree ctx2, Tree reduct> <- rule(r, ctx1, redex) };
+      // <Tree ctx2, Tree reduct> <- rule(r, ctx1, redex)
+      CR cr := rule(r, ctx, redex), cr != dummy
+      };
 
 rel[&T, str, Tree, &T] viewableTraceGraph(type[&T<:Tree] confType, &T conf, list[type[Tree]] ctxs, set[str] rules) {
   rel[&T, str, Tree, &T] trace = {};
