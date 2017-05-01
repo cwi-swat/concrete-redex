@@ -1,7 +1,7 @@
 module Scheme
 
 extend lang::std::Layout;
-import RRedex;
+extend RRedex; 
 import List;
 import String;
 
@@ -19,12 +19,12 @@ syntax Value
   | Num
   | "#t"
   | "#f"
-  | "-"
+  | "-" !>> [0-9]
   | "unspecified"
   ;
   
 lexical Num
-  = [0-9]+ !>> [0-9]
+  = [\-]?[0-9]+ !>> [0-9]
   ;
 
 lexical Id
@@ -41,14 +41,6 @@ syntax P = Store "|-" E;
 syntax E 
   = hole: Expr //"[]"
   | "(" Value* E Expr* ")"
-  
-  /*
-   "(" E Expr* ")"
-   "(" Value E Expr* ")"
-   "(" Value Value E Expr* ")"
-  */
-  
-  
   | "(" "set!" Id E ")"
   | "(" "begin" E Expr* ")"
   | "(" "if" E Expr Expr ")"
@@ -61,7 +53,8 @@ syntax E
 //    list := fresh(xs, s),
 //    Expr e2 := subst(xs, ys, e),
 //    Store s2 := updateMany([ x | Id x <- xs], [ v | Value x <- args ], s); 
-     
+
+Conf paperExample() = (Conf)`[x ↦ 1] |- ((set! x (- x)) (set! x (- x)))`;    
   
 CR rule("MSet", (P)`<Store s> |- <E e>`, (Expr)`(set! <Id x> <Value v>)`)
   = <(P)`<Store s2> |- <E e>`, (Expr)`unspecified`>
@@ -89,9 +82,9 @@ CR rule("MIfF", P p, (Expr)`(if #f <Expr e1> <Expr e2>)`)
   = <p, e2>;
 
 CR rule("MNeg", P p, (Expr)`(- <Num n>)`)
-  = <p, minN>
+  = <p, [Expr]"<minN>">
   when
-    Expr minN := [Expr]"< -toInt("<n>")>";
+    int minN := -toInt("<n>");
 
 bool isDefined(Id x, (Store)`[<{VarValue ","}* _>, <Id y> ↦ <Value _>, <{VarValue ","}* _>]`)
   = true
@@ -108,6 +101,8 @@ Store update(Id x, Value v, (Store)`[<{VarValue ","}* v1>, <Id y> ↦ <Value _>,
 bool allValue(Expr* es) = ( true | it && (Expr)`<Value v>` := e | Expr e <- es );
  
 
+rel[Conf,str,Tree,Conf] traceScheme(Conf c) = viewableTraceGraph(#Conf, #P, c, 
+  {"MSet", "MLookup", "MSeq", "MTrivSeq", "MNeg", "MIfT", "MIfF"}); 
 
 
 
