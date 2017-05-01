@@ -5,6 +5,7 @@ import List;
 import IO;
 import util::Maybe;
 import String;
+import Set;
 
 /*
  * - matching list patterns e.g.: Value, {Expr ","}*
@@ -18,12 +19,72 @@ import String;
  */
 
 // result of rule function
-alias CR[&T] = list[&T];
+alias CR = lrel[Tree,Tree];
 
 
 // to be extended
-default CR[void] rule(str _, Tree _) = [];
+default CR rule(str _, Tree _, Tree _) = [];
 
+
+rel[tuple[Tree, Tree], str, tuple[Tree, Tree]] congruence(rel[Tree,Tree] matches, set[str] rules)
+  = { <<ctx1, redex>, r, <ctx2, reduct>> |
+      <Tree ctx1, Tree redex> <- matches, !(ctx1 is hole),
+      str r <- rules,
+      //bprintln("Trying <r> on <redex> in <ctx1>"),
+      <Tree ctx2, Tree reduct> <- rule(r, ctx1, redex) };
+
+//Trace[&T] traceGraph(Conf[&T] conf, set[str] rules) {
+//  Trace[&T] trace = {};
+//  set[Conf[&T]] confs = {conf};
+//  while (confs != {}) {
+//    set[Conf[&T]] newConfs = {};
+//    for (Conf[&T] c1 <- confs) {
+//      Trace[&T] steps = congruence(c1, rules);
+//      trace += steps;
+//      newConfs += steps<2>;
+//    }
+//    confs = newConfs;
+//  }
+//  return trace;
+//}
+
+// first in ctxs is the top context sort "correponding" to type of conf
+void run(Tree conf, list[type[Tree]] ctxs, set[str] rules) {
+  topCtx = ctxs[0];
+  ctxSymbols = { c.symbol | type[Tree] c <- ctxs };
+  
+  int i = 0;
+  bool stuck = false;
+  while (!stuck) {
+    println("ITER <i>");
+    <prodMap, matches> = split(ctxSymbols, topCtx, conf);
+    
+    steps = congruence(matches, rules);
+    println("#steps <size(steps)>");
+    if (size(steps) == 0) {
+      println("SPLITS:");
+      for (<Tree c, Tree r> <- matches) {
+        println("CTX: <c>   ");
+        iprintln(c);
+        println("RED: <r>    ");
+      }
+    }
+    if (size(steps) > 1) {
+      println("WARNING: non-determinism");
+    }
+    if (<<Tree ctx1, Tree redex>, str r,  <Tree ctx2, Tree reduct>> <- steps) {
+      println("Rule: <r>");
+      println("Redex: <redex>");
+      println("Reduct: <reduct>   blblbla");
+      conf = plug(ctxSymbols, prodMap, ctx2, reduct);
+      println("Newconf: <conf>   blablabla");
+    }
+    else {
+      stuck = true;
+    }
+    i += 1;
+  }  
+}
 
 list[Tree] injectIfNeeded(list[Symbol] syms, list[Tree] args) {
   return for (int i <- [0..size(syms)]) {
@@ -39,15 +100,17 @@ list[Tree] injectIfNeeded(list[Symbol] syms, list[Tree] args) {
 
 anno bool Tree@reduct;
 
-Tree plug(Tree ctx, Tree term) {
+Tree plug(set[Symbol] ctxSymbols, map[Production,Production] prodMap, Tree ctx, Tree term) {
   Tree focused(Tree t) {
     t.prod.attributes += {\tag("category"("Focus"))};
     return t;
   }
+  
+  bool isCtx(Tree t) = t has prod && t.prod.def in ctxSymbols;
 
   Tree t = visit (ctx) {
     case Tree aCtx => appl(p, injectIfNeeded(p.symbols, aCtx.args))
-      when Ctx _ := aCtx, \tag(Production p) <- aCtx.prod.attributes
+      when isCtx(aCtx),  Production p := prodMap[aCtx.prod]
     case Tree h => term[@reduct=true] //focused(term)
       when h is hole
   };
@@ -66,53 +129,24 @@ default bool match(Symbol _, Tree _) = false;
 Symbol noLabel(label(_, Symbol s)) = s;
 default Symbol noLabel(Symbol s) = s;  
 
-Tree makeDummy(s:lit(str x)) = appl(prod(s, [/*???*/], {}), [ char(i) | int i <- chars(x) ]);
-Tree makeDummy(s:layouts(_)) = appl(prod(s, [/* ??? */], {}), []);
-
-// turn ctx,redex -> <ctx c>[<redex>]
-Maybe[Tree] toSyntax(type[&T<:Tree] confType, Tree ctx, Tree redex) {
-  set[Production] prods = confType.definitions[confType.symbol].alternatives;
-  
-  for (Production p <- prods, \tag("inContext"()) <- p.attributes) {
-    list[Tree] newArgs = [];
-    foundRedex = false;
-    foundCtx = true;
-    for (Symbol arg <- p.symbols) {
-      if (label("ctx", Symbol s) := arg, s == ctx.prod.def) {
-        newArgs += [ctx];
-        foundCtx = true;
-      } 
-      else if (arg == redex.prod.def) {
-        newArgs += [redex];
-        foundRedex = true;
-      }
-      else {
-        newArgs += [makeDummy(arg)];
-      }
-    }
-    if (foundCtx && foundRedex) {
-      return just(appl(p, newArgs));
-    }
-  }
-
-  return nothing();
-}
-
-  
-rel[Tree, Tree] split(set[Symbol] ctxSymbols, type[&T<:Tree] ctxType, Tree t) {
+tuple[map[Production, Production], rel[Tree, Tree]] split(set[Symbol] ctxSymbols, type[&T<:Tree] ctxType, Tree t) {
   //iprintln(ctxType.definitions);
+  map[Production, Production] prodMap = ();
   
   void splitRec(Symbol ctxSort, Tree term, void(Tree, Tree) k) {
     set[Production] prods = ctxType.definitions[ctxSort].alternatives;
     
     nextProd: for (Production ctxProd <- prods) {
+      //println("Trying prod: <ctxProd>");
       
-      if (labeled("hole", _) := ctxProd.def) {
+      if (label("hole", _) := ctxProd.def) {
+        //println("  fail because hole");
         continue nextProd;
       }
     
       // todo: deal with regulars
       if (size(term.prod.symbols) != size(ctxProd.symbols)) {
+        //println("  fail because arity mismatch");
         continue nextProd;
       }
 
@@ -120,12 +154,14 @@ rel[Tree, Tree] split(set[Symbol] ctxSymbols, type[&T<:Tree] ctxType, Tree t) {
       Maybe[Symbol] maybeRec = nothing();
       for (int i <- [0..size(ctxProd.symbols)]) {
 //        if (label("ctx", Symbol rec) := ctxProd.symbols[i]) {
-        if (ctxProd.symbols[i] in ctxSymbols) {
+        if (noLabel(ctxProd.symbols[i]) in ctxSymbols) {
           assert ctxPos == -1: "multiple holes in context";
+          //println("  context arg: <noLabel(ctxProd.symbols[i])> at <i>");
           ctxPos = i;
-          maybeRec = just(rec);
+          maybeRec = just(noLabel(ctxProd.symbols[i]));
         }
         else if (!match(noLabel(ctxProd.symbols[i]), term.args[i])) {
+          //println("  fail because no match");
           continue nextProd;
         }
       }
@@ -135,9 +171,12 @@ rel[Tree, Tree] split(set[Symbol] ctxSymbols, type[&T<:Tree] ctxType, Tree t) {
       assert maybeRec != nothing();
       
       
+      
       splitRec(maybeRec.val, term.args[ctxPos], (Tree subAlt, Tree redex) {
         // put original production inside the ctx production.
-        ctxProd = ctxProd[attributes=ctxProd.attributes + {\tag(term.prod)}];
+        //ctxProd.attributes = ctxProd.attributes + {\tag(term.prod)};
+        //ctxProd@original = term.prod; // NB: these get lost when matching using concrete syntax to update context...
+        prodMap[ctxProd] = term.prod; 
         k(appl(ctxProd, term.args[0..ctxPos] + [subAlt] + term.args[ctxPos+1..]), redex);
       });
       
@@ -145,15 +184,16 @@ rel[Tree, Tree] split(set[Symbol] ctxSymbols, type[&T<:Tree] ctxType, Tree t) {
     
     // coming here means, no prod could be used to split term
     // hence make empty context; and term becomes redex
-    Tree empty = appl(prod(label("hole",ctxType.symbol),[lit("☐")],{}),[
+    Tree hole = appl(prod(label("hole",ctxSort),[lit("☐")],{}),[
              appl(prod(lit("☐"),[\char-class([range(9744,9744)])],{}),[char(9744)])]);
-    k(empty, term); // 
+    k(hole, term); // 
   }
   
   rel[Tree,Tree] result = {};
   splitRec(ctxType.symbol, t, (Tree ctx, Tree redex) {
     result += {<ctx, redex>};
   });
-  return result;
-  
+  //println("Result: <size(result)>");
+
+  return <prodMap, result>;
 }

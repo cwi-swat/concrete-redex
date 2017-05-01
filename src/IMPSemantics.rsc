@@ -1,24 +1,48 @@
 module IMPSemantics
 
-import IMP;
+extend IMP;
 extend RRedex;
 
 import String;
 
-syntax Ctx
-  = Ctx "+" AExp
-  | AExp "+" Ctx
-  | Ctx "/" AExp
-  | AExp "/" Ctx
-  | Ctx "\<=" AExp
-  | Int "\<=" Ctx // injections are possible :-)
-  | "not" Ctx
-  | Ctx "and" BExp
-  | Id ":=" Ctx
-  | Ctx ";" Stmt
-  | "if" Ctx "then" Stmt "else" Stmt "fi"
-  | "(" Ctx "," State state ")"
+syntax E
+  = E "+" AExp
+  | AExp "+" E
+  | E "/" AExp
+  | AExp "/" E
+  | E "\<=" AExp
+  | Int "\<=" E // injections are possible :-)
+  | "not" E
+  | E "and" BExp
+  | hole: "☐"
   ;
+
+syntax S
+  = Id ":=" E
+  | S ";" Stmt
+  | "if" E "then" Stmt "else" Stmt "fi"
+  | hole: "☐"
+  ;
+  
+syntax C
+  = State "⊢" S
+  ;
+
+//syntax C
+//  = hole: "☐"
+//  | C ctx "+" AExp
+//  | AExp "+" C ctx
+//  | C ctx "/" AExp
+//  | AExp "/" C ctx
+//  | C ctx "\<=" AExp
+//  | Int "\<=" C ctx // injections are possible :-)
+//  | "not" C ctx
+//  | C ctx "and" BExp
+//  | Id ":=" C ctx
+//  | C ctx ";" Stmt
+//  | "if" C ctx "then" Stmt "else" Stmt "fi"
+//  | State "⊢" C ctx
+//  ;
   
 syntax State
   = "[" {VarInt ","}* "]";
@@ -27,19 +51,89 @@ syntax VarInt
   = Id "↦" Int
   ;
 
-// we can't use labels, because plug etc. cannot know about it.  
 syntax Conf
-  = "(" Stmt "," State state ")";
-  
+  = State "⊢" Stmt
+  ;
   
 Conf example() 
-  = (Conf)`(x := 1; 
-          'y := y + x + y; 
-          'if x \<= y then 
-          '  x := x + y 
-          'else 
-          '  y := 0 
-          'fi, [x ↦ 0, y ↦ 0])`;
+  = (Conf)`[x ↦ 0, y ↦ 0] ⊢ 
+          '  x := 1; 
+          '  y := x + 2; 
+          '  if x \<= y then 
+          '    x := x + y 
+          '  else 
+          '    y := 0 
+          '  fi`;
+
+CR rule("lookup", c:(C)`<State s> ⊢ <S _>`, (AExp)`<Id x>`)
+  = [<c, (AExp)`<Int i>`>]
+  when 
+    isDefined(x, s), 
+    Int i := lookup(x, s); 
+
+
+CR rule("add", C c, (AExp)`<Int i1> + <Int i2>`) 
+  = [<c, (AExp)`<Int i>`>] 
+  when
+    int n1 := toInt("<i1>"),
+    int n2 := toInt("<i2>"),
+    Int i := [Int]"<n1 + n2>";
+
+CR rule("div", C c, (AExp)`<Int i1> / <Int i2>`) 
+  = [<c, (AExp)`<Int i>`>]
+  when
+    int n1 := toInt("<i1>"),
+    int n2 := toInt("<i2>"),
+    Int i := [Int]"<n1 / n2>";
+
+
+CR rule("leq", C c, (BExp)`<Int i1> \<= <Int i2>`)
+  = [<c, toInt("<i1>") <= toInt("<i2>") ? (BExp)`true` : (BExp)`false`>];
+
+CR rule("not-false", C c, (BExp)`not false`)
+  = [<c, (BExp)`true`>];
+
+CR rule("not-true", C c, (BExp)`not true`)
+  = [<c, (BExp)`false`>];
+  
+CR rule("and-true", C c, (BExp)`true and <BExp b>`)
+  = [<c, b>];
+
+CR rule("and-false", C c, (BExp)`false and <BExp b>`)
+  = [<c, (BExp)`false`>];
+
+CR rule("seq", C c, (Stmt)`skip; <Stmt s2>`)
+  = [<c, s2>];
+
+CR rule("if-true", C c, (Stmt)`if true then <Stmt s1> else <Stmt s2> fi`)
+  = [<c, s1>];
+
+CR rule("if-false", C c, (Stmt)`if false then <Stmt s1> else <Stmt s2> fi`)
+  = [<c, s2>];
+
+CR rule("while", C c, (Stmt)`while <BExp b> do <Stmt s> od`)
+  = [<c, (Stmt)`if <BExp b> then <Stmt s>; while <BExp b> do <Stmt s> od else skip fi`>];
+
+
+CR rule("assign", (C)`<State s> ⊢ <S c>`, (Stmt)`<Id x> := <Int i>`)
+  = [<(C)`<State s2> ⊢ <S c>`, (Stmt)`skip`>]
+  when 
+    isDefined(x, s), 
+    State s2 := update(x, i, s);
+  
+
+//rel[Conf,str,Tree,Conf] traceConf(Conf c) = traceGraph(#Conf, c, {"leq", "seq", "if-true",
+//  "if-false", "lookup", "assign", "add", "div", "while", "not-false",
+//  "not-true", "and-true", "and-false"}); 
+
+void runConf(Conf c) = run(c, [#C, #S, #E], {"leq", "seq", "if-true",
+  "if-false", "lookup", "assign", "add", "div", "while", "not-false",
+  "not-true", "and-true", "and-false"}); 
+
+//lrel[Conf,Conf] stepConf(Conf c) = step(#Conf, c, {"leq", "seq", "if-true",
+//  "if-false", "lookup", "assign", "add", "div", "while", "not-false",
+//  "not-true", "and-true", "and-false"}); 
+
 
 bool isDefined(Id x, (State)`[<{VarInt ","}* _>, <Id y> ↦ <Int i>, <{VarInt ","}* _>]`)
   = true
@@ -52,74 +146,6 @@ Int lookup(Id x, (State)`[<{VarInt ","}* _>, <Id y> ↦ <Int i>, <{VarInt ","}* 
 State update(Id x, Int i, (State)`[<{VarInt ","}* v1>, <Id y> ↦ <Int _>, <{VarInt ","}* v2>]`)
   = (State)`[<{VarInt ","}* v1>, <Id x> ↦ <Int i>, <{VarInt ","}* v2>]`
   when x == y;
-
-
-CR rule("add", Ctx c, (AExp)`<Int i1> + <Int i2>`) 
-  = [<c, (AExp)`<Int i>`>]
-  when
-    int n1 := toInt("<i1>"),
-    int n2 := toInt("<i2>"),
-    Int i := [Int]"<n1 + n2>";
-
-CR rule("div", Ctx c, (AExp)`<Int i1> / <Int i2>`) 
-  = [<c, (AExp)`<Int i>`>]
-  when
-    int n1 := toInt("<i1>"),
-    int n2 := toInt("<i2>"),
-    Int i := [Int]"<n1 / n2>";
-
-
-CR rule("leq", Ctx c, (BExp)`<Int i1> \<= <Int i2>`)
-  = [<c, toInt("<i1>") <= toInt("<i2>") ? (BExp)`true` : (BExp)`false`>];
-
-CR rule("not-false", Ctx c, (BExp)`not false`)
-  = [<c, (BExp)`true`>];
-
-CR rule("not-true", Ctx c, (BExp)`not true`)
-  = [<c, (BExp)`false`>];
-  
-CR rule("and-true", Ctx c, (BExp)`true and <BExp b>`)
-  = [<c, b>];
-
-CR rule("and-false", Ctx c, (BExp)`false and <BExp b>`)
-  = [<c, (BExp)`false`>];
-
-CR rule("seq", Ctx c, (Stmt)`skip; <Stmt s2>`)
-  = [<c, s2>];
-
-CR rule("if-true", Ctx c, (Stmt)`if true then <Stmt s1> else <Stmt s2> fi`)
-  = [<c, s1>];
-
-CR rule("if-false", Ctx c, (Stmt)`if false then <Stmt s1> else <Stmt s2> fi`)
-  = [<c, s2>];
-
-CR rule("while", Ctx c, (Stmt)`while <BExp b> do <Stmt s> od`)
-  = [<c, (Stmt)`if <BExp b> then <Stmt s>; while <BExp b> do <Stmt s> od else skip fi`>];
-
-CR rule("lookup", Ctx c, (AExp)`<Id x>`)
-  = [<c, i>]
-  when 
-    isDefined(x, c.state), 
-    Int i := lookup(x, c.state); 
-
-  
-CR rule("assign", Ctx c, (Stmt)`<Id x> := <Int i>`)
-  = [<c[state=update(x, i, c.state)], (Stmt)`skip`>]
-  when 
-    isDefined(x, c.state);
-  
-
-rel[Conf,str,Tree,Conf] traceConf(Conf c) = traceGraph(#Conf, c, {"leq", "seq", "if-true",
-  "if-false", "lookup", "assign", "add", "div", "while", "not-false",
-  "not-true", "and-true", "and-false"}); 
-
-void runConf(Conf c) = run(#Conf, c, {"leq", "seq", "if-true",
-  "if-false", "lookup", "assign", "add", "div", "while", "not-false",
-  "not-true", "and-true", "and-false"}); 
-
-lrel[Conf,Conf] stepConf(Conf c) = step(#Conf, c, {"leq", "seq", "if-true",
-  "if-false", "lookup", "assign", "add", "div", "while", "not-false",
-  "not-true", "and-true", "and-false"}); 
 
 
 
