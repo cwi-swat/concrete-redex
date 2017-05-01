@@ -3,6 +3,8 @@ module RRedex
 import ParseTree;
 import List;
 import IO;
+import util::Maybe;
+import String;
 
 /*
  * - matching list patterns e.g.: Value, {Expr ","}*
@@ -15,98 +17,12 @@ import IO;
  * - make things generic on "conf"
  */
 
-// to be extended
-syntax Ctx
-  = hole: "☐"
-  ;
+// result of rule function
+alias CR[&T] = list[&T];
 
-// configurations
-private alias C = tuple[Ctx ctx, Tree tree];
-
-// the result of a rule
-alias CR = list[C];
-
-alias Trace = lrel[C from, str rule, C to];
 
 // to be extended
-default CR rule(_, _, Tree t) = [];
-
-
-lrel[&T, &T] step(type[&T<:Tree] typ, &T conf, set[str] rules)
-  =  [ <conf, plug(typ, ctx2, reduct)> | <Ctx ctx1, Tree redex> <- split(#Ctx, conf)
-     , str r <- rules, <Ctx ctx2, Tree reduct> <- rule(r, ctx1, redex) ];   
-
-Trace step(Tree conf, set[str] rules)
-  = [ <<ctx1, redex>, r, <ctx2, reduct>> | <Ctx ctx1, Tree redex> <- split(#Ctx, conf)
-     , str r <- rules, <Ctx ctx2, Tree reduct> <- rule(r, ctx1, redex) ];   
-
-alias Stepper = tuple[bool() hasNext,  Trace() next];
-
-Stepper stepper(type[&T<:Tree] typ, &T conf, set[str] rules) {
-  bool stuck = false;
-  Trace steps = [];
-  bool hasNext() {
-    Trace steps = step(conf, rules);
-    return steps != [];
-  }
-  
-  Trace next() {
-    conf = plug(typ);
-    return steps;
-  }
-
-}
-
-&T removeFocus(&T<:Tree t) {
-  return visit (t) {
-    case a:appl(prod(Symbol d, list[Symbol] ss, {*as, \tag("category"("Focus"))}), list[Tree] args) 
-      => appl(prod(d, ss, {*as}), args) 
-  }
-}
-
-rel[&T, str, Tree, &T] traceGraph(type[&T<:Tree] typ, &T conf, set[str] rules) {
-  rel[&T, str, Tree, &T] trace = {};
-  set[&T] confs = {conf};
-  while (confs != {}) {
-    set[&T] newConfs = {};
-    for (&T c1 <- confs) {
-      Trace steps = step(c1, rules);
-      for (<<_, Tree redex>, str rule, <Ctx ctx2, Tree reduct>> <- steps) {
-        if (&T c2 := plug(typ, ctx2, reduct)) {
-          trace += <c1, rule, redex, c2>;
-          newConfs += c2; //removeFocus(c2);
-        }
-        else throw "Error";
-      }
-    }
-    confs = newConfs;
-  }
-  return trace;
-}
-
-void run(type[&T<:Tree] typ, &T conf, set[str] rules) {
-  
-  int i = 0;
-  bool stuck = false;
-  while (!stuck) {
-    println("ITER <i>");
-    Trace steps = step(conf, rules);
-    if (size(steps) > 1) {
-      println("WARNING: non-determinism");
-    }
-    if (<<Ctx ctx1, Tree redex>, str r,  <Ctx ctx2, Tree reduct>> <- steps) {
-      println("Rule: <r>");
-      println("Redex: <redex>");
-      println("Reduct: <reduct>");
-      conf = plug(typ, ctx2, reduct);
-      println("Newconf: <conf>");
-    }
-    else {
-      stuck = true;
-    }
-    i += 1;
-  }  
-}
+default CR[void] rule(str _, Tree _) = [];
 
 
 list[Tree] injectIfNeeded(list[Symbol] syms, list[Tree] args) {
@@ -123,7 +39,7 @@ list[Tree] injectIfNeeded(list[Symbol] syms, list[Tree] args) {
 
 anno bool Tree@reduct;
 
-&T plug(type[&T<:Tree] typ, Tree ctx, Tree term) {
+Tree plug(Tree ctx, Tree term) {
   Tree focused(Tree t) {
     t.prod.attributes += {\tag("category"("Focus"))};
     return t;
@@ -136,10 +52,7 @@ anno bool Tree@reduct;
       when h is hole
   };
 
-  if (&T typedT := t) {
-    return typedT;
-  }
-  throw "Could not make typed tree for <t>";
+  return t;
 }
 
 // equals 
@@ -152,38 +65,79 @@ default bool match(Symbol _, Tree _) = false;
 
 Symbol noLabel(label(_, Symbol s)) = s;
 default Symbol noLabel(Symbol s) = s;  
+
+Tree makeDummy(s:lit(str x)) = appl(prod(s, [/*???*/], {}), [ char(i) | int i <- chars(x) ]);
+Tree makeDummy(s:layouts(_)) = appl(prod(s, [/* ??? */], {}), []);
+
+// turn ctx,redex -> <ctx c>[<redex>]
+Maybe[Tree] toSyntax(type[&T<:Tree] confType, Tree ctx, Tree redex) {
+  set[Production] prods = confType.definitions[confType.symbol].alternatives;
   
-rel[Tree, Tree] split(type[&T<:Tree] ctxType, Tree t) {
-  set[Production] prods = ctxType.definitions[ctxType.symbol].alternatives;
+  for (Production p <- prods, \tag("inContext"()) <- p.attributes) {
+    list[Tree] newArgs = [];
+    foundRedex = false;
+    foundCtx = true;
+    for (Symbol arg <- p.symbols) {
+      if (label("ctx", Symbol s) := arg, s == ctx.prod.def) {
+        newArgs += [ctx];
+        foundCtx = true;
+      } 
+      else if (arg == redex.prod.def) {
+        newArgs += [redex];
+        foundRedex = true;
+      }
+      else {
+        newArgs += [makeDummy(arg)];
+      }
+    }
+    if (foundCtx && foundRedex) {
+      return just(appl(p, newArgs));
+    }
+  }
+
+  return nothing();
+}
+
   
-  void splitRec(Tree term, void(Tree, Tree) k) {
-    nextProd: for (Production ctx <- prods) {
-      if (ctx is hole) {
+rel[Tree, Tree] split(set[Symbol] ctxSymbols, type[&T<:Tree] ctxType, Tree t) {
+  //iprintln(ctxType.definitions);
+  
+  void splitRec(Symbol ctxSort, Tree term, void(Tree, Tree) k) {
+    set[Production] prods = ctxType.definitions[ctxSort].alternatives;
+    
+    nextProd: for (Production ctxProd <- prods) {
+      
+      if (labeled("hole", _) := ctxProd.def) {
         continue nextProd;
       }
     
-      if (size(term.prod.symbols) != size(ctx.symbols)) {
+      // todo: deal with regulars
+      if (size(term.prod.symbols) != size(ctxProd.symbols)) {
         continue nextProd;
       }
 
       int ctxPos = -1;
-      for (int i <- [0..size(ctx.symbols)]) {
-        if (ctx.symbols[i] == ctxType.symbol) {
+      Maybe[Symbol] maybeRec = nothing();
+      for (int i <- [0..size(ctxProd.symbols)]) {
+//        if (label("ctx", Symbol rec) := ctxProd.symbols[i]) {
+        if (ctxProd.symbols[i] in ctxSymbols) {
           assert ctxPos == -1: "multiple holes in context";
           ctxPos = i;
+          maybeRec = just(rec);
         }
-        else if (!match(noLabel(ctx.symbols[i]), term.args[i])) {
+        else if (!match(noLabel(ctxProd.symbols[i]), term.args[i])) {
           continue nextProd;
         }
       }
       
       // comming here means prods are compatible modulo ctx recursive argument at ctxPos position
       assert ctxPos != -1;
+      assert maybeRec != nothing();
       
       
-      splitRec(term.args[ctxPos], (Tree subAlt, Tree redex) {
+      splitRec(maybeRec.val, term.args[ctxPos], (Tree subAlt, Tree redex) {
         // put original production inside the ctx production.
-        ctxProd = ctx[attributes=ctx.attributes + {\tag(term.prod)}];
+        ctxProd = ctxProd[attributes=ctxProd.attributes + {\tag(term.prod)}];
         k(appl(ctxProd, term.args[0..ctxPos] + [subAlt] + term.args[ctxPos+1..]), redex);
       });
       
@@ -197,7 +151,7 @@ rel[Tree, Tree] split(type[&T<:Tree] ctxType, Tree t) {
   }
   
   rel[Tree,Tree] result = {};
-  splitRec(t, (Tree ctx, Tree redex) {
+  splitRec(ctxType.symbol, t, (Tree ctx, Tree redex) {
     result += {<ctx, redex>};
   });
   return result;
