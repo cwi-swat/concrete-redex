@@ -28,22 +28,6 @@ syntax C
   = State "⊢" S
   ;
 
-//syntax C
-//  = hole: "☐"
-//  | C ctx "+" AExp
-//  | AExp "+" C ctx
-//  | C ctx "/" AExp
-//  | AExp "/" C ctx
-//  | C ctx "\<=" AExp
-//  | Int "\<=" C ctx // injections are possible :-)
-//  | "not" C ctx
-//  | C ctx "and" BExp
-//  | Id ":=" C ctx
-//  | C ctx ";" Stmt
-//  | "if" C ctx "then" Stmt "else" Stmt "fi"
-//  | State "⊢" C ctx
-//  ;
-  
 syntax State
   = "[" {VarInt ","}* "]";
 
@@ -58,7 +42,7 @@ syntax Conf
 Conf example() 
   = (Conf)`[x ↦ 0, y ↦ 0] ⊢ 
           '  x := 1; 
-          '  y := x + 2; 
+          '  y := x + y + x + y; 
           '  if x \<= y then 
           '    x := x + y 
           '  else 
@@ -122,9 +106,9 @@ CR rule("assign", (C)`<State s> ⊢ <S c>`, (Stmt)`<Id x> := <Int i>`)
     State s2 := update(x, i, s);
   
 
-//rel[Conf,str,Tree,Conf] traceConf(Conf c) = traceGraph(#Conf, c, {"leq", "seq", "if-true",
-//  "if-false", "lookup", "assign", "add", "div", "while", "not-false",
-//  "not-true", "and-true", "and-false"}); 
+rel[Conf,str,Tree,Conf] traceConf(Conf c) = viewableTraceGraph(#Conf, c, [#C, #S, #E], {"leq", "seq", "if-true",
+  "if-false", "lookup", "assign", "add", "div", "while", "not-false",
+  "not-true", "and-true", "and-false"}); 
 
 void runConf(Conf c) = run(c, [#C, #S, #E], {"leq", "seq", "if-true",
   "if-false", "lookup", "assign", "add", "div", "while", "not-false",
