@@ -44,14 +44,14 @@ void view(Model m) {
       id += 1;
     }
     
-    dagre("mygraph", rankdir("TD"), width(1560), height(600), (N n, E e) {
+    dagre("mygraph", rankdir("LR"), width(1560), height(600), (N n, E e) {
       for (Tree x <- nodeIds) {
         n(nodeIds[x], shape("rect"), () { 
           highlightToHtml(x, container=pre, more = reductCSS);
         });
       }
       for (<Tree t1, str rule, Tree redex, Tree t2> <- m.trace) {
-        e(nodeIds[t1], nodeIds[t2], edgeLabel("<rule>: <redex>"), lineInterpolate("linear"));
+        e(nodeIds[t1], nodeIds[t2], edgeLabel("<rule>: <redex>"), lineInterpolate("basis"));
       }
     });    
     

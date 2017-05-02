@@ -99,7 +99,7 @@ CR rule("assign", (C)`<State s> ⊢ <S c>`, (Stmt)`<Id x> := <Int i>`) = <(C)`<S
     isDefined(x, s), 
     State s2 := update(x, i, s);
 
-rel[Conf,str,Tree,Conf] traceConf(Conf c) = viewableTraceGraph(#Conf, #C, c, {"leq", "seq", "if-true",
+rel[Conf,str,Tree,Conf] traceConf(Conf c) = traceGraph(#Conf, #C, c, {"leq", "seq", "if-true",
   "if-false", "lookup", "assign", "add", "div", "while", "not-false",
   "not-true", "and-true", "and-false"}); 
  
