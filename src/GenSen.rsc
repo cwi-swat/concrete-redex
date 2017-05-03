@@ -1,48 +1,50 @@
-module GenSen
+module GenSen3
 
 import ParseTree;
 import Type;
 import util::Math;
 import util::Maybe;
 import List;
+import Set;
 import String;
 import IO;
 
 
-list[Tree] genSens(type[&T<:Tree] typ, int bound, int depth) {
-  set[Tree] result = {};
 
-  int i = 0;
-  while (i < bound) {
-    genSen(typ, depth, (Tree t) {
-      //if (t notin result) {
-        result += {t};
-        i += 1;
-      //}
-    });
-  }
+Tree genSen(type[&T<:Tree] typ, int depth) 
+  = genSen(typ.symbol, typ.definitions, depth);
 
-  return [ t | Tree t <- result ];
-} 
-
-void genSen(type[&T<:Tree] typ, int depth, void(Tree) k) 
-  = genSen(typ.symbol, typ.definitions, depth, k);
-
-void genSen(Symbol s, map[Symbol, Production] defs, int depth, void(Tree) k) {
-  println("Visiting: <s> (depth = <depth>)");
-  genSen_(s, defs, depth, k);
+Tree genSen(Symbol s, map[Symbol, Production] defs, int depth) {
+  //println("Visiting: <s> (depth = <depth>)");
+  return genSen_(s, defs, depth);
 }
 
-void genSen_(s:sort(_), map[Symbol, Production] defs, int depth, void(Tree) k)
-  = genSen(defs[s].alternatives, defs, depth, k);
+Tree genSen_(s:sort(_), map[Symbol, Production] defs, int depth)
+  = genSenProd(defs[s], defs, depth);
 
-void genSen_(s:layouts(_), map[Symbol, Production] defs, int depth, void(Tree) k)
-  //= genSen({ p | Production p <- defs[s].alternatives, \tag("category"("Comment")) notin p.attributes }, defs, depth, k);
-  =  k(appl(p, [char(i) | int i <- chars(" ") ]))
+Tree genSen_(s:layouts(_), map[Symbol, Production] defs, int depth)
+  =  appl(p, [char(i) | int i <- chars(" ") ])
   when Production p <- defs[s].alternatives;
 
-void genSen_(s:lex(_), map[Symbol, Production] defs, int depth, void(Tree) k)
-  = genSen(defs[s].alternatives, defs, depth, k);
+Tree genSen_(s:lex(_), map[Symbol, Production] defs, int depth)
+  = genSenProd(defs[s], defs, depth);
+
+int minSize(\empty()) = 0;
+int minSize(\opt(_)) = 0;
+int minSize(\iter-star(_)) = 0;
+int minSize(\iter-star-seps(_, _)) = 0;
+int minSize(\iter(_)) = 1;
+int minSize(\iter-seps(_, _)) = 1;
+int minSize(\alt(set[Symbol] syms)) = ( 1000 | min(it, minSize(s)) | Symbol s <- syms );
+int minSize(\seq(list[Symbol] syms)) = ( 0 | it + minSize(s) | Symbol s <- syms );
+
+default int minSize(Symbol _) = 1;
+
+int minSize(regular(Symbol s)) = minSize(s);
+int minSize(prod(_, list[Symbol] syms, _)) = ( 0 | it + minSize(s) | Symbol s <- syms );
+
+int minSize(priority(Symbol def, list[Production] choices))
+  = ( 1000 |  min(it, minSize(p)) | Production p <- choices );
 
 Maybe[Production] smallest(list[Production] prods) {
   Maybe[Production] small = nothing();
@@ -67,12 +69,30 @@ Maybe[Production] smallest(list[Production] prods) {
       else if (p is associativity) {
         ; // todo
       }
+      else if (p is regular, p.def is \iter-star || p.def is opt || p.def is \iter-star-seps || p.def is empty) {
+        small = just(p);
+      }
     }
   }
   return small;
 }
 
-void genSen(set[Production] alts, map[Symbol, Production] defs, int depth, void(Tree) k) {
+Tree genSenProd(regular(Symbol s), map[Symbol, Production] defs, int depth)
+  = genSen(s, defs, depth);
+
+Tree genSenProd(priority(_, list[Production] choices), map[Symbol, Production] defs, int depth)
+  = genSen({ p | Production p <- choices }, defs, depth);
+
+Tree genSenProd(associativity(_, _, set[Production] ps), map[Symbol, Production] defs, int depth)
+  = genSen(ps, defs, depth);
+
+Tree genSenProd(p:prod(_, list[Symbol] syms, _), map[Symbol, Production] defs, int depth)
+  = appl(p, [ genSen(sym, defs, depth - 1) | Symbol sym <- syms ]);
+  
+Tree genSenProd(choice(_, set[Production] ps), map[Symbol, Production] defs, int depth)
+  = genSen(ps, defs, depth); 
+
+Tree genSen(set[Production] alts, map[Symbol, Production] defs, int depth) {
 
   list[Production] prods = [ p | Production p <- alts ];
 
@@ -86,103 +106,69 @@ void genSen(set[Production] alts, map[Symbol, Production] defs, int depth, void(
     int pick = arbInt(size(prods));
     p = prods[pick];
   }
-
-
-  if (p is regular) {
-    genSen(p.def, defs, depth, k);
-    return;
-  }
   
-  if (p is priority) {
-    // for now, ignoring actual prio
-    genSen({ a | choice(_, set[Production] ps) <- p.choices, Production a <- ps } , defs, depth, k);
-    return;
-  }
+  return genSenProd(p, defs, depth);
+}
+
+Tree genSen_(reg:\empty(), map[Symbol, Production] defs, int depth)
+  = genSenList(reg, [], defs, depth);
+
+Tree genSen_(reg:\alt(set[Symbol] syms), map[Symbol, Production] defs, int depth) 
+  = genSenList(reg, [ getOneFrom(syms) ], defs, depth);
+
+int optLen(int depth) = depth <= 0 ? 0 : arbInt(2);
+
+Tree genSen_(reg:\opt(Symbol s), map[Symbol, Production] defs, int depth) 
+  = genSenList(reg, [ s | int _ <- [0..optLen(depth)] ], defs, depth);
+
+Tree genSen_(reg:\seq(list[Symbol] syms), map[Symbol, Production] defs, int depth)
+  = genSenList(reg, syms, defs, depth);
+
+Tree genSen_(reg:\iter(Symbol s), map[Symbol, Production] defs, int depth) 
+  = genSenIter(reg, defs, depth, 1);
+
+Tree genSen_(reg:\iter-star(Symbol s), map[Symbol, Production] defs, int depth) 
+  = genSenIter(reg, defs, depth, 0);
+
+int iterLen(int depth, int minLen) = depth <= 0 ? minLen : minLen + arbInt(10);
+
+Tree genSenIter(Symbol reg, map[Symbol, Production] defs, int depth, int minLen) 
+  = genSenList(reg, [ reg.symbol | int _ <- [0..iterLen(depth, minLen)] ], defs, depth);
+
+Tree genSen_(reg:\iter-seps(Symbol sym, list[Symbol] seps), map[Symbol, Production] defs, int depth)
+  = genSenIterSep(reg, defs, depth, 1);
   
-  // \associativity(Symbol def, Associativity \assoc, set[Production] alternatives) 
-  if (p is associativity) {
-    throw "not implemented";
-  }
+Tree genSen_(reg:\iter-star-seps(Symbol sym, list[Symbol] seps), map[Symbol, Production] defs, int depth) 
+  = genSenIterSep(reg, defs, depth, 0);
 
-  list[Tree] args = [];
-  for (Symbol sym <- p.symbols) {
-    genSen(sym, defs, depth - 1, (Tree a) {
-      args += [a];
-    });
-  }
-  k(appl(p, args));
-}
+int iterSepLen(Symbol reg, int depth, int minLen)
+  = depth <= 0 ? minLen : max(minLen,  arbInt(5) * (1 + size(reg.separators)) - size(reg.separators));
+  
+list[Symbol] iterSepSyms(Symbol reg, int len)
+  = [ seq[i % (1 + size(reg.separators))] | int i <- [0..len] ]
+  when list[Symbol] seq := [reg.symbol, *reg.separators];
+  
+Tree genSenIterSep(Symbol reg, map[Symbol, Production] defs, int depth, int minLen) 
+  = genSenList(reg, iterSepSyms(reg, iterSepLen(reg, depth, minLen)), defs, depth);
 
-void genSen_(reg:\empty(), map[Symbol, Production] defs, int depth, void(Tree) k)
-  = genSen(reg, [], defs, depth, k);
+Tree genSenList(Symbol s, list[Symbol] syms, map[Symbol, Production] defs, int depth) 
+  = appl(regular(s), [ genSen(sym, defs, depth - 1) | Symbol sym <- syms ]);
 
-void genSen_(reg:\alt(set[Symbol] syms), map[Symbol, Production] defs, int depth, void(Tree) k) {
-  lsyms = [ s | Symbol s <- syms ];
-  genSen(reg, [ lsyms[arbInt(size(lsyms))] ], defs, depth, k);
-}
+Tree genSen_(\conditional(Symbol s, _), map[Symbol, Production] defs, int depth) 
+  = genSen(s, defs, depth); // todo: passs conditions along
 
-void genSen_(reg:\opt(Symbol s), map[Symbol, Production] defs, int depth, void(Tree) k) {
-  int len = depth <= 0 ? 0 : arbInt(2);
-  genSen(reg, [ s | int _ <- [0..len] ], defs, depth, k);
-}
+Tree genSen_(\lit(str l), map[Symbol, Production] defs, int depth) 
+  = appl(prod(\lit(l), [], {}), [ char(i) | int i <- chars(l) ]);
 
-void genSen_(reg:\seq(list[Symbol] syms), map[Symbol, Production] defs, int depth, void(Tree) k)
-  = genSen(reg, syms, defs, depth, k);
+Tree genSen_(\cilit(str l), map[Symbol, Production] defs, int depth)
+  = appl(prod(\cilit(l), [], {}), [ char(i) | int i <- chars(l) ]);
 
-void genSen_(reg:\iter(Symbol s), map[Symbol, Production] defs, int depth, void(Tree) k) {
-  int len = depth <= 0 ? 1 : 1 + arbInt(10);
-  genSen(reg, [ s | int _ <- [0..1 + arbInt(10)] ], defs, depth, k);
-}
+int chooseChar(list[CharRange] rs)
+  = cr.begin + arbInt(max(1, cr.end - cr.begin))
+  when 
+    CharRange cr := rs[arbInt(size(rs))];
 
-void genSen_(reg:\iter-star(Symbol s), map[Symbol, Production] defs, int depth, void(Tree) k) {
-  int len = depth <= 0 ? 0 : arbInt(10);
-  genSen(reg, [ s | int _ <- [0..len] ], defs, depth, k);
-}
-
-void genSen_(reg:\iter-seps(Symbol sym, list[Symbol] seps), map[Symbol, Production] defs, int depth, void(Tree) k) {
-  int len = depth <= 0 ? 1 : max(1,  arbInt(5) * (1 + size(seps)) - size(seps));
-  list[Symbol] seq = [sym, *seps];
-  allSyms = [ seq[i % (1 + size(seps))] | int i <- [0..len] ];
-  //println("ALLSYMS for <len> iter-steps: <allSyms>");
-  genSen(reg, allSyms, defs, depth, k);
-}
-
-void genSen_(reg:\iter-star-seps(Symbol sym, list[Symbol] seps), map[Symbol, Production] defs, int depth, void(Tree) k) {
-  int len = depth <= 0 ? 0 : max(0,  arbInt(5) * (1 + size(seps)) - size(seps));
-  list[Symbol] seq = [sym, *seps];
-  allSyms = [ seq[i % (1 + size(seps))] | int i <- [0..len] ];
-  //println("ALLSYMS for <len> iter-star-steps: <allSyms>");
-  genSen(reg, allSyms, defs, depth, k);
-}
-
-void genSen(Symbol s, list[Symbol] syms, map[Symbol, Production] defs, int depth, void(Tree) k) {
-  list[Tree] args = [];
-
-  for (Symbol sym <- syms) {
-    genSen(sym, defs, depth - 1, (Tree a) {
-      args += [a];
-    });
-  }
-  k(appl(regular(s), args));
-}
-
-void genSen_(\conditional(Symbol s, _), map[Symbol, Production] defs, int depth, void(Tree) k) 
-  = genSen(s, defs, depth, k);
-
-void genSen_(\lit(str l), map[Symbol, Production] defs, int depth, void(Tree) k) {
-  k(appl(prod(\lit(l), [], {}), [ char(i) | int i <- chars(l) ]));
-}
-
-void genSen_(\cilit(str l), map[Symbol, Production] defs, int depth, void(Tree) k) {
-  k(appl(prod(\cilit(l), [], {}), [ char(i) | int i <- chars(l) ]));
-}
-
-void genSen_(\char-class(list[CharRange] rs), map[Symbol, Production] defs, int depth, void(Tree) k) {
-  int pick = arbInt(size(rs));
-  CharRange picked = rs[pick];
-  int ch = picked.begin + arbInt(max(1, picked.end - picked.begin));
-  Tree c = char(ch);
-  k(c);
-}
+Tree genSen_(\char-class(list[CharRange] rs), map[Symbol, Production] defs, int depth) 
+  = char(chooseChar(rs));
 
 
