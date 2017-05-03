@@ -3,9 +3,11 @@ module GenSen
 import ParseTree;
 import Type;
 import util::Math;
+import util::Maybe;
 import List;
 import String;
 import IO;
+
 
 list[Tree] genSens(type[&T<:Tree] typ, int bound, int depth) {
   set[Tree] result = {};
@@ -27,7 +29,7 @@ void genSen(type[&T<:Tree] typ, int depth, void(Tree) k)
   = genSen(typ.symbol, typ.definitions, depth, k);
 
 void genSen(Symbol s, map[Symbol, Production] defs, int depth, void(Tree) k) {
-  //println("Visiting: <s> (depth = <depth>)");
+  println("Visiting: <s> (depth = <depth>)");
   genSen_(s, defs, depth, k);
 }
 
@@ -42,18 +44,28 @@ void genSen_(s:layouts(_), map[Symbol, Production] defs, int depth, void(Tree) k
 void genSen_(s:lex(_), map[Symbol, Production] defs, int depth, void(Tree) k)
   = genSen(defs[s].alternatives, defs, depth, k);
 
-Production smallest(list[Production] prods) {
-  Production small;
+Maybe[Production] smallest(list[Production] prods) {
+  Maybe[Production] small = nothing();
   bool started = false;
   for (Production p <- prods) {
     if (!started) {
-      small = p;
+      small = just(p);
       started = true;
     }
     else {
-      assert p is prod : "bad production from grammar <p>";
-      if (size(p.symbols) < size(small.symbols)) {
-        small = p;
+      if (p is prod) {
+        if (just(Production p2) := small, size(p.symbols) < size(p2.symbols)) {
+          small = just(p);
+        }
+      }
+      else if (p is priority) {
+        maybeP2 = smallest([ a | choice(_, set[Production] ps) <- p.choices, Production a <- ps ]);
+        if (just(Production p2) := maybeP2, just(Production p3) := small, size(p2.symbols) < size(p3.symbols)) {
+          small = just(p);
+        } 
+      }
+      else if (p is associativity) {
+        ; // todo
       }
     }
   }
@@ -64,8 +76,16 @@ void genSen(set[Production] alts, map[Symbol, Production] defs, int depth, void(
 
   list[Production] prods = [ p | Production p <- alts ];
 
-  int pick = arbInt(size(prods));
-  Production p = depth <= 0 ? smallest(prods) : prods[pick];
+  assert size(prods) > 0: "Sort with no productions"; 
+
+  Production p;
+  if (depth <= 0, just(Production sm) := smallest(prods)) { 
+    p = sm;
+  }
+  else {
+    int pick = arbInt(size(prods));
+    p = prods[pick];
+  }
 
 
   if (p is regular) {
@@ -95,6 +115,11 @@ void genSen(set[Production] alts, map[Symbol, Production] defs, int depth, void(
 
 void genSen_(reg:\empty(), map[Symbol, Production] defs, int depth, void(Tree) k)
   = genSen(reg, [], defs, depth, k);
+
+void genSen_(reg:\alt(set[Symbol] syms), map[Symbol, Production] defs, int depth, void(Tree) k) {
+  lsyms = [ s | Symbol s <- syms ];
+  genSen(reg, [ lsyms[arbInt(size(lsyms))] ], defs, depth, k);
+}
 
 void genSen_(reg:\opt(Symbol s), map[Symbol, Production] defs, int depth, void(Tree) k) {
   int len = depth <= 0 ? 0 : arbInt(2);
