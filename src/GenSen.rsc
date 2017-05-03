@@ -1,4 +1,4 @@
-module GenSen3
+module GenSen
 
 import ParseTree;
 import Type;
@@ -14,68 +14,19 @@ import IO;
 Tree genSen(type[&T<:Tree] typ, int depth) 
   = genSen(typ.symbol, typ.definitions, depth);
 
-Tree genSen(Symbol s, map[Symbol, Production] defs, int depth) {
-  //println("Visiting: <s> (depth = <depth>)");
-  return genSen_(s, defs, depth);
-}
+Tree genSen(Symbol s, map[Symbol, Production] defs, int depth) 
+  = genSen_(s, defs, depth);
 
 Tree genSen_(s:sort(_), map[Symbol, Production] defs, int depth)
   = genSenProd(defs[s], defs, depth);
 
 Tree genSen_(s:layouts(_), map[Symbol, Production] defs, int depth)
-  =  appl(p, [char(i) | int i <- chars(" ") ])
+  = appl(p, [char(i) | int i <- chars(" ") ])
   when Production p <- defs[s].alternatives;
 
 Tree genSen_(s:lex(_), map[Symbol, Production] defs, int depth)
   = genSenProd(defs[s], defs, depth);
 
-int minSize(\empty()) = 0;
-int minSize(\opt(_)) = 0;
-int minSize(\iter-star(_)) = 0;
-int minSize(\iter-star-seps(_, _)) = 0;
-int minSize(\iter(_)) = 1;
-int minSize(\iter-seps(_, _)) = 1;
-int minSize(\alt(set[Symbol] syms)) = ( 1000 | min(it, minSize(s)) | Symbol s <- syms );
-int minSize(\seq(list[Symbol] syms)) = ( 0 | it + minSize(s) | Symbol s <- syms );
-
-default int minSize(Symbol _) = 1;
-
-int minSize(regular(Symbol s)) = minSize(s);
-int minSize(prod(_, list[Symbol] syms, _)) = ( 0 | it + minSize(s) | Symbol s <- syms );
-
-int minSize(priority(Symbol def, list[Production] choices))
-  = ( 1000 |  min(it, minSize(p)) | Production p <- choices );
-
-Maybe[Production] smallest(list[Production] prods) {
-  Maybe[Production] small = nothing();
-  bool started = false;
-  for (Production p <- prods) {
-    if (!started) {
-      small = just(p);
-      started = true;
-    }
-    else {
-      if (p is prod) {
-        if (just(Production p2) := small, size(p.symbols) < size(p2.symbols)) {
-          small = just(p);
-        }
-      }
-      else if (p is priority) {
-        maybeP2 = smallest([ a | choice(_, set[Production] ps) <- p.choices, Production a <- ps ]);
-        if (just(Production p2) := maybeP2, just(Production p3) := small, size(p2.symbols) < size(p3.symbols)) {
-          small = just(p);
-        } 
-      }
-      else if (p is associativity) {
-        ; // todo
-      }
-      else if (p is regular, p.def is \iter-star || p.def is opt || p.def is \iter-star-seps || p.def is empty) {
-        small = just(p);
-      }
-    }
-  }
-  return small;
-}
 
 Tree genSenProd(regular(Symbol s), map[Symbol, Production] defs, int depth)
   = genSen(s, defs, depth);
@@ -92,23 +43,11 @@ Tree genSenProd(p:prod(_, list[Symbol] syms, _), map[Symbol, Production] defs, i
 Tree genSenProd(choice(_, set[Production] ps), map[Symbol, Production] defs, int depth)
   = genSen(ps, defs, depth); 
 
-Tree genSen(set[Production] alts, map[Symbol, Production] defs, int depth) {
+Production chooseProd(set[Production] alts, int depth)
+  = depth <= 0 ? smallest(alts) : getOneFrom(alts);
 
-  list[Production] prods = [ p | Production p <- alts ];
-
-  assert size(prods) > 0: "Sort with no productions"; 
-
-  Production p;
-  if (depth <= 0, just(Production sm) := smallest(prods)) { 
-    p = sm;
-  }
-  else {
-    int pick = arbInt(size(prods));
-    p = prods[pick];
-  }
-  
-  return genSenProd(p, defs, depth);
-}
+Tree genSen(set[Production] alts, map[Symbol, Production] defs, int depth) 
+  = genSenProd(chooseProd(alts, depth), defs, depth);
 
 Tree genSen_(reg:\empty(), map[Symbol, Production] defs, int depth)
   = genSenList(reg, [], defs, depth);
@@ -146,7 +85,8 @@ int iterSepLen(Symbol reg, int depth, int minLen)
   
 list[Symbol] iterSepSyms(Symbol reg, int len)
   = [ seq[i % (1 + size(reg.separators))] | int i <- [0..len] ]
-  when list[Symbol] seq := [reg.symbol, *reg.separators];
+  when 
+    list[Symbol] seq := [reg.symbol, *reg.separators];
   
 Tree genSenIterSep(Symbol reg, map[Symbol, Production] defs, int depth, int minLen) 
   = genSenList(reg, iterSepSyms(reg, iterSepLen(reg, depth, minLen)), defs, depth);
@@ -171,4 +111,39 @@ int chooseChar(list[CharRange] rs)
 Tree genSen_(\char-class(list[CharRange] rs), map[Symbol, Production] defs, int depth) 
   = char(chooseChar(rs));
 
+int minSize(\empty()) = 0;
 
+int minSize(\opt(_)) = 0;
+
+int minSize(\iter-star(_)) = 0;
+
+int minSize(\iter-star-seps(_, _)) = 0;
+
+int minSize(\iter(_)) = 1;
+
+int minSize(\iter-seps(_, _)) = 1;
+
+int minSize(\alt(set[Symbol] syms)) 
+  = ( 1000 | min(it, minSize(s)) | Symbol s <- syms );
+
+int minSize(\seq(list[Symbol] syms))
+  = ( 0 | it + minSize(s) | Symbol s <- syms );
+
+default int minSize(Symbol _) = 1;
+
+int minSize(regular(Symbol s)) = minSize(s);
+
+int minSize(prod(_, list[Symbol] syms, _)) 
+  = ( 0 | it + minSize(s) | Symbol s <- syms );
+
+int minSize(choice(_, set[Production] alts)) 
+  = ( 1000 | min(it, minSize(a)) | Production a <- alts );
+
+int minSize(priority(Symbol def, list[Production] choices))
+  = ( 1000 |  min(it, minSize(p)) | Production p <- choices );
+  
+int minSize(associativity(_, _, set[Production] ps))
+  = ( 1000 |  min(it, minSize(p)) | Production p <- ps );
+
+Production smallest(set[Production] prods) 
+  = ( getOneFrom(prods) | minSize(p) < minSize(it) ? p : it | Production p <- prods ); 
