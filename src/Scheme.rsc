@@ -1,9 +1,16 @@
 module Scheme
 
-extend lang::std::Layout;
-extend RRedex; 
+extend RRedex;
+extend NameFix; 
 import List;
 import String;
+
+
+layout Standard 
+  = Whitespace* !>> [\t\n\ ];
+
+lexical Whitespace
+  = [\ \t\n];
 
 syntax Expr
   = "(" Expr Expr* ")"
@@ -46,8 +53,38 @@ syntax E
   | "(" "begin" E Expr* ")"
   | "(" "if" E Expr Expr ")"
   ;
+
+set[Tree] getNames((Expr)`(set! <Id x> <Expr _>)`) = {x};
+
+set[Tree] getNames((Expr)`<Id x>`) = {x};
+
+set[Tree] getNames((Expr)`(lambda (<Id+ xs>) <Expr e>)`) = { x  | Id x <- xs };
+
+set[Tree] getNames((Store)`[<{VarValue ","}* vs>]`)
+  = { x | (VarValue)`<Id x> ↦ <Value v>` <- vs };
+
+Tree prime(Id x) = [Id]"<x>_";
+
+Tree subst(t:(Expr)`<Id y>`, Id x, Expr new) 
+  = mark(new)
+  when 
+    x == y;
+
+Tree subst(t:(Expr)`(lambda (<Id+ xs>) <Expr e>)`, Id x, Expr new) 
+  = t
+  when
+    x <- xs;
+    
+Tree subst(t:(Expr)`(lambda (<Id+ xs>) <Expr e>)`, Id x, Expr new) 
+  = (Expr)`(lambda (<Id+ xs>) <Expr eNew>)`
+  when
+    !(x <- xs),
+    Expr eNew := subst(e, x, new);  
   
 Conf paperExample() = (Conf)`[x ↦ 1] |- ((set! x (- x)) (set! x (- x)))`;    
+
+Expr lambda() = (Expr)`(lambda (x) (set! x y))`;    
+
   
 CR rule("MSet", (P)`<Store s> |- <E e>`, (Expr)`(set! <Id x> <Value v>)`) = <(P)`<Store s2> |- <E e>`, (Expr)`unspecified`>
   when 
@@ -74,6 +111,8 @@ CR rule("MNeg", P p, (Expr)`(- <Num n>)`) = <p, [Expr]"<minN>">
 
 bool isDefined(Id x, (Store)`[<{VarValue ","}* _>, <Id y> ↦ <Value _>, <{VarValue ","}* _>]`) = true
   when x == y;
+ 
+default bool isDefined(Id x, Store _) = false; 
   
 Value lookup(Id x, (Store)`[<{VarValue ","}* _>, <Id y> ↦ <Value v>, <{VarValue ","}* _>]`) = v
   when x == y;
