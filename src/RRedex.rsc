@@ -13,9 +13,9 @@ alias CR = tuple[Tree context, Tree reduct];
 // to be extended
 default CR rule(str _, Tree _, Tree _) = dummy;
 
-private CR dummy 
-  = <appl(prod(sort("null"), [], {}), [char(110),char(117),char(108),char(108)]),
-    appl(prod(sort("null"), [], {}), [char(110),char(117),char(108),char(108)])>;
+
+private Tree null = appl(prod(sort("null"), [], {}), [char(110),char(117),char(108),char(108)]);
+private CR dummy = <null, null>;
 
 alias Trace = rel[tuple[Tree,Tree] from, str rule, tuple[Tree, Tree] to];
 
@@ -57,7 +57,6 @@ rel[&T, str, Tree, &T] traceGraph(type[&T<:Tree] confType, type[&Ctx<:Tree] ctxT
         }
       }
     }
-    i += 1;
     confs = newConfs;
   }
   return trace;
@@ -73,7 +72,7 @@ void run(type[&T<:Tree] termType, type[&Ctx<:Tree] ctxType, &T conf, set[str] ru
     
     Trace steps = reductions(matches, rules);
     
-    if (size(steps) > 1) { // technically this should check on matches...
+    if (size(steps) > 1) { // technically this should check on matches but excluding [] context...
       println("WARNING: non-unique decomposition");
     }
     
