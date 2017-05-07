@@ -43,13 +43,13 @@ int round = 0;
 // checks if any subterm is replaced, then automatically
 // calls mark. recursive function.
 
-Tree mark(Tree t) {
+private Tree mark(Tree t) {
   t@\loc.query = "<round>";
   return t;
 } 
 
 &T doSubst(type[&T<:Tree] typ, &T t, Tree var, Tree exp) {
-  t = subst(t, var, exp);
+  t = subst(t, var, mark(exp));
   t = propagate(t, round, false);
   t = fix(t, namesOf(t), round);
   round += 1; // this should be outside (part of RRedex reduction cycle), since scope is not 1 substitution
@@ -60,7 +60,7 @@ Tree mark(Tree t) {
 }
 
 // TODO: merge propaget with namesOf
-Tree propagate(Tree t, int round, bool doIt) {
+private Tree propagate(Tree t, int round, bool doIt) {
   //println("Propagating <t> (round = <round>, doit = <doIt>)");
   if (!t@\loc?) {
     //println("No loc for <t>");

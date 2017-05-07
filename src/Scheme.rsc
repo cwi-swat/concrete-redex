@@ -66,7 +66,7 @@ set[Tree] getNames((Store)`[<{VarValue ","}* vs>]`)
 Tree prime(Id x) = [Id]"<x>_";
 
 Tree subst(t:(Expr)`<Id y>`, Id x, Expr new) 
-  = mark(new)
+  = new
   when 
     x == y;
 
