@@ -54,17 +54,9 @@ syntax E
   | "(" "if" E Expr Expr ")"
   ;
 
-set[Tree] names((Expr)`(set! <Id x> <Expr _>)`) = {x};
+Id prime(Id x) = [Id]"<x>_";
 
-set[Tree] names((Expr)`<Id x>`) = {x};
-
-set[Tree] names((Expr)`(lambda (<Id* xs>) <Expr e>)`) = { x  | Id x <- xs };
-
-set[Tree] names((Store)`[<{VarValue ","}* vs>]`)
-  = { x | (VarValue)`<Id x> ↦ <Value v>` <- vs };
-
-Tree prime(Id x) = [Id]"<x>_";
-
+// Supply name resolution
 Refs resolve(Expr exp, Scope sc, Lookup lu) {
   top-down-break visit (exp) {
     case (Expr)`<Id x>`:
@@ -81,7 +73,11 @@ Refs resolve(Expr exp, Scope sc, Lookup lu) {
   return {};
 }
 
-Tree subst(Expr e, Id x, Expr y) {
+Expr mySubst(Expr e, Id x, Expr y)
+  = substitute(#Expr, #Id, #Expr, e, x, y, subst, resolve, prime);
+
+// Supply a concrete substitution function
+Expr subst(Expr e, Id x, Expr y) {
   return visit(e) {
     case (Expr)`<Id z>` => y
       when z == x
@@ -89,22 +85,6 @@ Tree subst(Expr e, Id x, Expr y) {
 }
 
 
-//Tree subst(t:(Expr)`<Id y>`, Id x, Expr new) 
-//  = new
-//  when 
-//    x == y;
-//
-//Tree subst(t:(Expr)`(lambda (<Id* xs>) <Expr e>)`, Id x, Expr new) 
-//  = t
-//  when
-//    x <- xs;
-//    
-//Tree subst(t:(Expr)`(lambda (<Id* xs>) <Expr e>)`, Id x, Expr new) 
-//  = (Expr)`(lambda (<Id* xs>) <Expr eNew>)`
-//  when
-//    !(x <- xs),
-//    Expr eNew := subst(e, x, new);  
-  
 Conf paperExample() = (Conf)`[x ↦ 1] |- ((set! x (- x)) (set! x (- x)))`;    
 
 Expr lambda() = (Expr)`(lambda (x) (set! x y))`;    
