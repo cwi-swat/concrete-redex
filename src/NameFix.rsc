@@ -9,103 +9,76 @@ alias Index = rel[loc, Tree];
 // to be extended
 default Tree prime(Tree t) = t;
 
-default set[Tree] getNames(Tree _) = {};
+default Refs resolve(Tree _, list[Env] _, Lookup _) = {};
 
-default Tree subst(t:appl(Production p, list[Tree] args), Tree var, Tree exp) 
-  = t@\loc? ? appl(p, [ subst(a, var, exp) | Tree a <- t.args ])[@\loc=t@\loc]
-      : appl(p, [ subst(a, var, exp) | Tree a <- t.args ]);
-  
-default Tree subst(Tree t, Tree var, Tree exp) = t;
+default Tree subst(Tree t, Tree x, Tree e) = t;
+
 
 //////
 
 
-tuple[Tree,set[Tree]] fresh(Tree x, set[Tree] names) {
+alias Env = rel[Tree name, loc decl, loc scope];
+
+
+// start of list = inner
+alias Scope = list[Env];
+alias Refs = rel[loc use, loc def, Tree name];
+alias Lookup = set[loc](Tree, loc, Scope);
+alias GetRenaming = map[loc,Tree](Refs);  
+
+
+Tree fresh(Tree x, set[Tree] names) {
   while (x in names) {
-    //println("RENAMING!!! <x>");
     x = prime(x);
-    //println("PRIMED ----\> <x>");
   }
-  return <x, names + {x}>;
-}
-
-Tree substitute(Tree t, map[loc,Tree] ren) {
-  return visit (t) {
-    case Tree x => ren[x@\loc]
-      when x@\loc?, x@\loc in ren
-  }
+  return x;
 }
 
 
-int round = 0;
+&T doSubst(type[&T<:Tree] typ, &T t, Tree x, Tree sub) {
+  t = subst(t, x, sub);
+  <lu, getRenaming> = makeResolver();
+  refs = resolve(t, [], lu);
+  renaming = getRenaming(refs);
 
-// Maybe have drive "subst" that calls user subst
-// checks if any subterm is replaced, then automatically
-// calls mark. recursive function.
+  Tree t2 = visit (t) {
+    case Tree z => renaming[z@\loc]
+      when z@\loc?, z@\loc in renaming
+  };
 
-private Tree mark(Tree t) {
-  t@\loc.query = "<round>";
-  return t;
-} 
-
-&T doSubst(type[&T<:Tree] typ, &T t, Tree var, Tree exp) {
-  t = subst(t, var, mark(exp));
-  t = propagate(t, round, false);
-  t = fix(t, namesOf(t), round);
-  round += 1; // this should be outside (part of RRedex reduction cycle), since scope is not 1 substitution
-  if (&T typed := t) {
+  if (&T typed := t2) {
     return typed;
   }
-  assert false: "could make typed term";
 }
 
-// TODO: merge propaget with namesOf
-private Tree propagate(Tree t, int round, bool doIt) {
-  //println("Propagating <t> (round = <round>, doit = <doIt>)");
-  if (!t@\loc?) {
-    //println("No loc for <t>");
-    return t;
-  }
+tuple[Lookup, GetRenaming] makeResolver() {
+  map[loc, Tree] toRename = ();
   
-  //println("LOC = <t@\loc>");
-  //if (!(t is appl)) {
-  if (appl(_, _) !:= t) {
-    //println("Not an appl: <t>");
-    return t;
-  }
-  
-  if (doIt) {
-    //println("setting round = <round>");
-    t@\loc.query = "<round>";
-  }
-
-  return appl(t.prod, [ propagate(arg, round, t@\loc.query == "<round>" || doIt) | Tree arg <- t.args ])[@\loc=t@\loc];
-}
-
-Index namesOf(Tree t) 
-  = { <name@\loc, name> | /Tree sub := t, Tree name <- getNames(sub), name@\loc? };
-
-Tree fix(Tree gen, Index names, int round) {
-  //println("ROUND = <round>");
-  bool isNew(Tree x) = x@\loc.query == "<round>"; 
-  
-  set[Tree] other = { x | <_, Tree x> <- names, isNew(x) }; 
-
-  set[Tree] allNames = { x | <_, Tree x> <- names }; 
-  
-  map[loc,Tree] subst = ();
-  map[Tree, Tree] renaming = ();
-
-  // NB: this depends on the fact that equals is modulo annos
-  for (<loc l, Tree x> <- names, !isNew(x), x in other) {
-    //println("Checking <l>: <x>");
-    if (x notin renaming) {
-      <y, allNames> = fresh(x, allNames);
-      //println("YYYY = <y>"); 
-      renaming[x] = y;
+  set[loc] lookup__(Tree name, loc use, Scope sc) {
+    for (Env env <- sc, <name, loc def, loc scope> <- env) {
+      if (use <= scope) { //contains(scope, use)) {
+        return {def};
+      }
+      // captures are renamed until a non-capturing decl is found
+      toRename[def] = name;
     }
-    subst[l] = renaming[x]; 
+    // not found
+    return {};
   }
   
-  return substitute(gen, subst); 
+  map[loc, Tree] getRenaming__(Refs refs) {
+    ren = ();
+    set[Tree] allNames = refs<2>;
+    for (loc d <- toRename) {
+      Tree n = fresh(toRename[d], allNames);
+      //println("Fresh: <n>");
+      allNames += {n};
+      ren[d] = n;
+      ren += ( u: n | <loc u, d, _> <- refs ); 
+    }
+    return ren;
+  }
+
+  return <lookup__, getRenaming__>;
 }
+
