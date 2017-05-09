@@ -26,8 +26,6 @@ CR rule("if0f", E e, (Expr)`(if0 <Value v> <Expr e1> <Expr e2>)`)
 CR rule("if0t", E e, (Expr)`(if0 0 <Expr e1> <Expr e2>)`)
   = <e, e1>;
 
-
-
 CR rule("βv", E e, (Expr)`((λ (<Id* xs>) <Expr body>) <Expr* args>)`)
   = <e, newBody>
   when 
@@ -54,20 +52,27 @@ Expr subst(Expr e, Id x, Expr y) {
 }
 
 Refs resolve(Expr exp, Scope sc, Lookup lu) {
+  Refs refs = {};
   top-down-break visit (exp) {
-    case (Expr)`<Id x>`:
-      return { <x@\loc, def, x> | loc def <- lu(x, x@\loc, sc) };
-  
+    case (Expr)`<Id x>`: 
+      refs += { <x@\loc, def, x> | loc def <- lu(x, x@\loc, sc) };
+
     case (Expr)`(λ (<Id* xs>) <Expr e>)`: 
-      return { <x@\loc, x@\loc, x> | Id x <- xs } // defs refer to themselves
+      refs += { <x@\loc, x@\loc, x> | Id x <- xs } // defs refer to themselves
         + resolve(e, [ {<x, x@\loc> | Id x <- xs }, *sc], lu);
   }
-  return {};
+  return refs;
 }
 
 
 Expr example() 
  = (Expr)`((λ (n) (if0 n 1 ((λ (x) (x x)) (λ (x) (x x))))) (+ 2 2))`;
+
+Expr exampleWithFreeVars() 
+ = (Expr)`(if0 n 1 ((λ (x) (x n)) n))`;
+  
+test bool simpleCapture()
+  = mySubst((Expr)`(λ (x) (+ x y))`, (Id)`y`, (Expr)`x`) == (Expr)`(λ (x_) (+ x_ x))`;   
   
 void runLambda(Expr e) = run(#Expr, #E, e, {"+", "if0f", "if0t", "βv"}); 
 
