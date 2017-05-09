@@ -19,7 +19,7 @@ private int round = -1;
 
 @doc{Call `replace` in your syntactic substitution functions
 when actually inserting the substituant into the term. This
-support name capture detection in the `substitute`}
+supports name capture detection in the `substitute` drive function.}
 &T replace(type[&T<:Tree] ty, &T t) {
   Tree t0 = t;
   
@@ -33,7 +33,7 @@ support name capture detection in the `substitute`}
   }
 }
 
-@doc{Capture-avoid substitution. This function uses the provided syntactic
+@doc{Capture-avoiding substitution. This function uses the provided syntactic
 substitution function `mySubst` and custom name resolution function `myResolve`
 to fix name capturing after substitution has taken place. Function `myPrime`
 is used to produce new names.}
@@ -42,6 +42,10 @@ is used to produce new names.}
   round += 1;
   println("Round = <round>");
   &T newT = mySubst(t, x, sub);
+  // TODO:
+  // resolve t
+  // find x in t, if it's a def (e.g., <x@\loc, x@\loc, x> <- refs)
+  // then don't go into term? This requires scope...
   <lu, getRenaming> = makeResolver(varType, myPrime);
   refs = myResolve(newT, [], lu);
   //for (<a, b, c> <- refs) {
@@ -57,7 +61,7 @@ is used to produce new names.}
   return renamedT;
 }
 
-@doc{Compute set of free variables according to resolve function}
+@doc{Compute set of free variables according to provided resolve function.}
 set[&V] freeVars(type[&T<:Tree] termType, type[&V<:Tree] varType, &T t, 
   Refs(&T, Scope, Lookup) myResolve) {
   fv = {};
