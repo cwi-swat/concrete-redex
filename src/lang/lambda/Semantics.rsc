@@ -52,9 +52,9 @@ Refs resolve(Expr exp, Scope sc, Lookup lu) {
     case (Expr)`<Id x>`: 
       refs += { <x@\loc, x, scope, decl> | <loc scope, loc decl> <- lu(x, x@\loc, sc) };
 
-    case t:(Expr)`(λ (<Id* xs>) <Expr e>)`: 
-      refs += { <x@\loc, x, t@\loc, x@\loc> | Id x <- xs } // defs refer to themselves
-        + resolve(e, [ {<t@\loc, x@\loc, x> | Id x <- xs }, *sc], lu);
+    case (Expr)`(λ (<Id* xs>) <Expr e>)`: 
+      refs += { <x@\loc, x, e@\loc, x@\loc> | Id x <- xs } // defs refer to themselves
+        + resolve(e, [ {<e@\loc, x@\loc, x> | Id x <- xs }, *sc], lu);
   }
   return refs;
 }

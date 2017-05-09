@@ -20,9 +20,9 @@ Refs resolve(Expr exp, Scope sc, Lookup lu) {
       refs += { <x@\loc, x, scope, def> | <loc scope, loc def> <- lu(x, x@\loc, sc) }
         + resolve(e, sc, lu);
         
-    case t:(Expr)`(lambda (<Id* xs>) <Expr e>)`: 
-      refs += { <x@\loc, x, t@\loc, x@\loc> | Id x <- xs } // defs refer to themselves
-        + resolve(e, [ {<t@\loc, x@\loc, x> | Id x <- xs }, *sc], lu);
+    case (Expr)`(lambda (<Id* xs>) <Expr e>)`: 
+      refs += { <x@\loc, x, e@\loc, x@\loc> | Id x <- xs } // defs refer to themselves
+        + resolve(e, [ {<e@\loc, x@\loc, x> | Id x <- xs }, *sc], lu);
   }
   return refs;
 }
