@@ -11,8 +11,15 @@ alias Refs = rel[loc use, loc def, Tree name];
 alias Lookup = set[loc](Tree, loc, Scope);
 alias GetRenaming = map[loc,Tree](Refs);  
 
+@doc{This global variable represents phases of substitution.
+Every substitute call increases the round, so that newly
+inserted subterms can be distinguished from earlier ones. }
 private int round = -1;
 
+
+@doc{Call `replace` in your syntactic substitution functions
+when actually inserting the substituant into the term. This
+support name capture detection in the `substitute`}
 &T replace(type[&T<:Tree] ty, &T t) {
   Tree t0 = t;
   
@@ -26,12 +33,20 @@ private int round = -1;
   }
 }
 
+@doc{Capture-avoid substitution. This function uses the provided syntactic
+substitution function `mySubst` and custom name resolution function `myResolve`
+to fix name capturing after substitution has taken place. Function `myPrime`
+is used to produce new names.}
 &T substitute(type[&T<:Tree] termType, type[&V<:Tree] varType, type[&R<:Tree] replaceType, &T t, &V x, &R sub,
    &T(&T, &V, &R) mySubst, Refs(&T, Scope, Lookup) myResolve, &V(&V) myPrime) {
   round += 1;
+  println("Round = <round>");
   &T newT = mySubst(t, x, sub);
   <lu, getRenaming> = makeResolver(varType, myPrime);
   refs = myResolve(newT, [], lu);
+  //for (<a, b, c> <- refs) {
+  //  println("REF: <a>, <b>, <c>");
+  //}
   renaming = getRenaming(refs);
 
   &T renamedT = visit (newT) {
@@ -42,14 +57,40 @@ private int round = -1;
   return renamedT;
 }
 
-private &T fresh(type[&T<:Tree] varType, &T x, set[&T] names, &T(&T) myPrime) {
+@doc{Compute set of free variables according to resolve function}
+set[&V] freeVars(type[&T<:Tree] termType, type[&V<:Tree] varType, &T t, 
+  Refs(&T, Scope, Lookup) myResolve) {
+  fv = {};
+  
+  set[loc] lu(Tree name, loc use, Scope sc) {
+    if (Env env <- sc, <name, loc def> <- env, !isCapture(use, def)) {
+      ; // we found a definition, so *not* free.
+    }
+    else {
+      fv += { v | &V v := name };
+    }
+    return {};
+  } 
+    
+  myResolve(t, [], lu);
+  
+  return fv;
+}
+
+@doc{Obtain a fresh name relative to the set `names`. The function
+`myPrime` is used to create new names.}
+&T fresh(type[&T<:Tree] varType, &T x, set[&T] names, &T(&T) myPrime) {
   while (x in names) {
     x = myPrime(x);
   }
   return x;
 }
 
-bool isCapture(loc use, loc def) {
+@doc{Determine whether the `use` of a name is captured by definition `def`.
+A use is captured its `round` (as encoded in the location fragment) is the
+current round, but the round of `def` is absent or less than it.}
+private bool isCapture(loc use, loc def) { 
+  //= toInt(use.fragment) == round ==> def.fragment != "<round>";
   r1 = def.fragment;
   r2 = use.fragment;
   //println("Use: <use>");
@@ -72,6 +113,7 @@ private tuple[Lookup, GetRenaming] makeResolver(type[&T<:Tree] varType, &T(&T) m
   map[loc, Tree] toRename = ();
   
   set[loc] lookup__(Tree name, loc use, Scope sc) {
+    //println("lookup of <name> at <use>");
     for (Env env <- sc, <name, loc def> <- env) {
       if (!isCapture(use, def)) { 
         //println("No Capture");
