@@ -10,6 +10,7 @@ alias Scope = list[Env];
 alias Refs = rel[loc use, loc def, Tree name];
 alias Lookup = set[loc](Tree, loc, Scope);
 alias GetRenaming = map[loc,Tree](Refs);  
+alias Resolver = tuple[Lookup lookup, GetRenaming getRenaming];
 
 @doc{This global variable represents phases of substitution.
 Every substitute call increases the round, so that newly
@@ -46,12 +47,12 @@ is used to produce new names.}
   // resolve t
   // find x in t, if it's a def (e.g., <x@\loc, x@\loc, x> <- refs)
   // then don't go into term? This requires scope...
-  <lu, getRenaming> = makeResolver(varType, myPrime);
-  refs = myResolve(newT, [], lu);
+  Resolver resolver = makeResolver(varType, myPrime);
+  refs = myResolve(newT, [], resolver.lookup);
   //for (<a, b, c> <- refs) {
   //  println("REF: <a>, <b>, <c>");
   //}
-  renaming = getRenaming(refs);
+  renaming = resolver.getRenaming(refs);
 
   &T renamedT = visit (newT) {
     case Tree z => renaming[z@\loc]
@@ -93,27 +94,10 @@ set[&V] freeVars(type[&T<:Tree] termType, type[&V<:Tree] varType, &T t,
 @doc{Determine whether the `use` of a name is captured by definition `def`.
 A use is captured its `round` (as encoded in the location fragment) is the
 current round, but the round of `def` is absent or less than it.}
-private bool isCapture(loc use, loc def) { 
-  //= toInt(use.fragment) == round ==> def.fragment != "<round>";
-  r1 = def.fragment;
-  r2 = use.fragment;
-  //println("Use: <use>");
-  //println("Def: <def>");
-  //println("r1: <r1>, r2: <r2>");
-  if (r1 == r2) {
-    return false;
-  }  
-  if (r1 == "", toInt(r2) == round) {
-    return true;
-  }
-  if (r1 != "", toInt(r1) < round, toInt(r2) == round) {
-    return true;
-  }
-  return false;
-}
+private bool isCapture(loc use, loc def) 
+  = use.fragment == "<round>" && def.fragment != "<round>";
 
-
-private tuple[Lookup, GetRenaming] makeResolver(type[&T<:Tree] varType, &T(&T) myPrime) {
+private Resolver makeResolver(type[&T<:Tree] varType, &T(&T) myPrime) {
   map[loc, Tree] toRename = ();
   
   set[loc] lookup__(Tree name, loc use, Scope sc) {
