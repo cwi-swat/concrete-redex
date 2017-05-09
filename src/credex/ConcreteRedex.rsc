@@ -21,7 +21,7 @@ alias Trace = rel[tuple[Tree,Tree] from, str rule, tuple[Tree, Tree] to];
 
 Trace reductions(rel[Tree,Tree] matches, set[str] rules)
   = { <<ctx, redex>, r, <cr.context, cr.reduct>> |
-      <Tree ctx, Tree redex> <- matches, !(ctx is hole),
+      <Tree ctx, Tree redex> <- matches, // !(ctx is hole),
       str r <- rules, CR cr := rule(r, ctx, redex), cr != dummy };
 
 private void noChangeInReductionError(Tree c1, Tree ctx1, Tree redex, str r, Tree ctx2, Tree reduct, Tree c2) {
@@ -66,11 +66,17 @@ rel[&T, str, Tree, &T] traceGraph(type[&T<:Tree] confType, type[&Ctx<:Tree] ctxT
 void run(type[&T<:Tree] termType, type[&Ctx<:Tree] ctxType, &T conf, set[str] rules) {
   int i = 0;
   bool stuck = false;
+  
+  // value because bug in runtime type check
+  set[value] allConfs = {conf};
+  
   while (!stuck) {
     println("#<i>");
     rel[Tree, Tree] matches = split(ctxType, conf);
+    //println("#matches: <size(matches)>");
     
     Trace steps = reductions(matches, rules);
+    //println("#steps: <size(steps)>");
     
     if (size(steps) > 1) { // technically this should check on matches but excluding [] context...
       println("WARNING: non-unique decomposition");
@@ -79,7 +85,14 @@ void run(type[&T<:Tree] termType, type[&Ctx<:Tree] ctxType, &T conf, set[str] ru
     if (<<Tree ctx1, Tree redex>, str r,  <Tree ctx2, Tree reduct>> <- steps) {
       newConf = plug(termType, ctx2, reduct);
       reportStep(conf, ctx1, redex, r, ctx2, reduct, newConf);
-      conf = newConf;
+      if (newConf in allConfs) {
+        println("cycle");
+        stuck = true;
+      }
+      else {
+        allConfs += {newConf};
+        conf = newConf;
+      }
     }
     else {
       stuck = true;

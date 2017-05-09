@@ -5,7 +5,7 @@ import IO;
 import List;
 import String;
 
-alias Env = rel[Tree name, loc decl, loc scope];
+alias Env = rel[Tree name, loc decl];
 alias Scope = list[Env];
 alias Refs = rel[loc use, loc def, Tree name];
 alias Lookup = set[loc](Tree, loc, Scope);
@@ -52,6 +52,9 @@ private &T fresh(type[&T<:Tree] varType, &T x, set[&T] names, &T(&T) myPrime) {
 bool isCapture(loc use, loc def) {
   r1 = def.fragment;
   r2 = use.fragment;
+  //println("Use: <use>");
+  //println("Def: <def>");
+  //println("r1: <r1>, r2: <r2>");
   if (r1 == r2) {
     return false;
   }  
@@ -69,10 +72,12 @@ private tuple[Lookup, GetRenaming] makeResolver(type[&T<:Tree] varType, &T(&T) m
   map[loc, Tree] toRename = ();
   
   set[loc] lookup__(Tree name, loc use, Scope sc) {
-    for (Env env <- sc, <name, loc def, loc scope> <- env) {
+    for (Env env <- sc, <name, loc def> <- env) {
       if (!isCapture(use, def)) { 
+        //println("No Capture");
         return {def};
       }
+      //println("Capture");
       // captures are renamed until a non-capturing decl is found
       toRename[def] = name;
     }
