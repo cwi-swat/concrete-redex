@@ -120,6 +120,7 @@ rel[Tree,Tree] split(type[&T<:Tree] ctxType, Tree t) {
   ctxParse = parse(ctxType, "<t>", allowAmbiguity=true);
   
   rel[Tree, Tree] result = {};
+  
   flattenAmbs(ctxParse, (Tree ctx, Tree redex) {
     result += {<ctx, redex>};
   });
@@ -127,11 +128,11 @@ rel[Tree,Tree] split(type[&T<:Tree] ctxType, Tree t) {
   return result;
 }
 
-Tree makeHole(Symbol sym) 
+private Tree makeHole(Symbol sym) 
   = appl(prod(label("hole", sym),[lit("☐")],{}),[
       appl(prod(lit("☐"),[\char-class([range(9744,9744)])],{}),[char(9744)])]);
  
-void flattenAmbs(Tree t, void(Tree,Tree) k) {
+private void flattenAmbs(Tree t, void(Tree,Tree) k) {
   if (t is hole) {
     k(makeHole(t.prod.def), t.args[0]); // skip over "hole" injection
     return;
