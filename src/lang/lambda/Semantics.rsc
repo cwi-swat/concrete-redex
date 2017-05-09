@@ -5,6 +5,7 @@ extend credex::ConcreteRedex;
 import credex::Substitution;
 import String;
 import IO;
+import util::Maybe;
 
 //(E (v ... E e ...) (if0 E e e) hole)
 syntax E
@@ -42,24 +43,22 @@ Expr mySubst(Expr e, Id x, Expr y)
 
 Id prime(Id x) = [Id]"<x>_";
 
-Expr subst(Expr e, Id x, Expr y) {
-  return top-down-break visit(e) {
-    case (Expr)`<Id z>` => replace(#Expr, y)
-      when z == x
-    case t:(Expr)`(λ (<Id* xs>) <Expr z>)` => t
-      when x <- xs 
-  }
-}
+Maybe[Expr] subst((Expr)`<Id z>`, Id x, Expr e)
+  = just(e)
+  when z == x;
+
+default Maybe[Expr] subst(Expr _, Id _, Expr _) = nothing();
+
 
 Refs resolve(Expr exp, Scope sc, Lookup lu) {
   Refs refs = {};
   top-down-break visit (exp) {
     case (Expr)`<Id x>`: 
-      refs += { <x@\loc, def, x> | loc def <- lu(x, x@\loc, sc) };
+      refs += { <x@\loc, x, scope, decl> | <loc scope, loc decl> <- lu(x, x@\loc, sc) };
 
-    case (Expr)`(λ (<Id* xs>) <Expr e>)`: 
-      refs += { <x@\loc, x@\loc, x> | Id x <- xs } // defs refer to themselves
-        + resolve(e, [ {<x, x@\loc> | Id x <- xs }, *sc], lu);
+    case t:(Expr)`(λ (<Id* xs>) <Expr e>)`: 
+      refs += { <x@\loc, x, t@\loc, x@\loc> | Id x <- xs } // defs refer to themselves
+        + resolve(e, [ {<t@\loc, x@\loc, x> | Id x <- xs }, *sc], lu);
   }
   return refs;
 }
