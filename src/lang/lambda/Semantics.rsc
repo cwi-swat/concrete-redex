@@ -43,12 +43,8 @@ Expr mySubst(Expr e, Id x, Expr y)
 
 Id prime(Id x) = [Id]"<x>_";
 
-Maybe[Expr] subst((Expr)`<Id z>`, Id x, Expr e)
-  = just(e)
-  when z == x;
-
-default Maybe[Expr] subst(Expr _, Id _, Expr _) = nothing();
-
+Maybe[Expr] subst(Expr s, Id x, Expr e)
+  = (Expr)`<Id z>` := s && x == z ? just(e) : nothing();
 
 Refs resolve(Expr exp, Scope sc, Lookup lu) {
   Refs refs = {};

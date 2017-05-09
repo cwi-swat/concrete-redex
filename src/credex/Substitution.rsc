@@ -69,8 +69,12 @@ is used to produce new names.}
    Maybe[&R](&R, &V, &R) mySubst, Refs(&T, Scope, Lookup) myResolve, &V(&V) myPrime) {
   round += 1;
 
-  rel[loc, loc] lu(Tree name, loc use, Scope sc) 
-    = { <scope, def> | Env env <- sc, <loc scope, loc def, name> <- env };
+  rel[loc, loc] lu(Tree name, loc use, Scope sc) {
+    if (Env env <- sc, <loc scope, loc def, name> <- env) {
+      return {<scope, def>};
+    }
+    return {};
+  }
   
   Refs refs = myResolve(t, [], lu);
 
@@ -85,6 +89,8 @@ is used to produce new names.}
     };
     return renamedT;
   }
+  
+  assert false: "traverseSubst not type-preserving!";
 }
 
 
