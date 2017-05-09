@@ -3,6 +3,7 @@ module credex::Substitution
 import ParseTree;
 import IO;
 import List;
+import String;
 
 alias Env = rel[Tree name, loc decl, loc scope];
 alias Scope = list[Env];
@@ -10,9 +11,24 @@ alias Refs = rel[loc use, loc def, Tree name];
 alias Lookup = set[loc](Tree, loc, Scope);
 alias GetRenaming = map[loc,Tree](Refs);  
 
+private int round = -1;
+
+&T replace(type[&T<:Tree] ty, &T t) {
+  Tree t0 = t;
+  
+  t0 = visit (t0) {
+    case Tree tz => tz[@\loc = tz@\loc[fragment = "<round>"]]
+      when tz@\loc? 
+  }
+  
+  if (&T t2 := t0) {
+    return t2;
+  }
+}
 
 &T substitute(type[&T<:Tree] termType, type[&V<:Tree] varType, type[&R<:Tree] replaceType, &T t, &V x, &R sub,
    &T(&T, &V, &R) mySubst, Refs(&T, Scope, Lookup) myResolve, &V(&V) myPrime) {
+  round += 1;
   &T newT = mySubst(t, x, sub);
   <lu, getRenaming> = makeResolver(varType, myPrime);
   refs = myResolve(newT, [], lu);
@@ -33,13 +49,28 @@ private &T fresh(type[&T<:Tree] varType, &T x, set[&T] names, &T(&T) myPrime) {
   return x;
 }
 
+bool isCapture(loc use, loc def) {
+  r1 = def.fragment;
+  r2 = use.fragment;
+  if (r1 == r2) {
+    return false;
+  }  
+  if (r1 == "", toInt(r2) == round) {
+    return true;
+  }
+  if (r1 != "", toInt(r1) < round, toInt(r2) == round) {
+    return true;
+  }
+  return false;
+}
+
 
 private tuple[Lookup, GetRenaming] makeResolver(type[&T<:Tree] varType, &T(&T) myPrime) {
   map[loc, Tree] toRename = ();
   
   set[loc] lookup__(Tree name, loc use, Scope sc) {
     for (Env env <- sc, <name, loc def, loc scope> <- env) {
-      if (use <= scope) { // non-containment = capture (?)
+      if (!isCapture(use, def)) { 
         return {def};
       }
       // captures are renamed until a non-capturing decl is found

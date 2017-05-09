@@ -1,13 +1,23 @@
 module lang::scheme::Subst
 
 import lang::scheme::Scheme;
-import NameFix;
+import credex::Substitution;
 import ParseTree;
 
 Expr mySubst(Expr e, Id x, Expr y)
   = substitute(#Expr, #Id, #Expr, e, x, y, subst, resolve, prime);
 
 Id prime(Id x) = [Id]"<x>_";
+
+//Refs refersTo((Expr)`<Id x>`, Lookup lu)
+//  = { <x@\loc, def, x> | loc def <- lu(x, x@\loc) };
+//  
+//Refs refersTo((Expr)`(set! <Id x> <Expr e>)`, Lookup lu)
+//  = { <x@\loc, def, x> | loc def <- lu(x, x@\loc) };
+//  
+//Defs defines((Expr)`(lambda (<Id* xs>) <Expr e>)`)
+//  = { <x@\loc, x, e> | Id x <- xs };
+
 
 Refs resolve(Expr exp, Scope sc, Lookup lu) {
   top-down-break visit (exp) {
@@ -26,8 +36,10 @@ Refs resolve(Expr exp, Scope sc, Lookup lu) {
 }
 
 Expr subst(Expr e, Id x, Expr y) {
-  return visit(e) {
-    case (Expr)`<Id z>` => y
+  return top-down-break visit(e) {
+    case (Expr)`<Id z>` => replace(#Expr, y)
       when z == x
+    case t:(Expr)`(lambda (<Id* xs>) <Expr z>)` => t
+      when x <- xs 
   }
 }

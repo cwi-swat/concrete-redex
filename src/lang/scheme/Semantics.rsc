@@ -27,7 +27,7 @@ Conf paperExample() = (Conf)`[x ↦ 1] |- ((set! x (- x)) (set! x (- x)))`;
 Expr lambda() = (Expr)`((lambda (x) (set! x y)) (lambda (z) y))`;  
 
 test bool substCapture()
-  = mySubst(lambda(), (Id)`y`, (Expr)`(- x x)`) == (Expr) `((lambda (x_) (set! x_ (- x x))) (lambda (z) (- x x)))`;
+  = (Expr)`((lambda (x_) (set! x_ (- x x))) (lambda (z) (- x x)))` := mySubst(lambda(), (Id)`y`, (Expr)`(- x x)`);
 
 //CR rule("MApp", (P)`<Store s> |- <E c>`, (Expr)`((lambda (<Id* xs>) <Expr e>) <Expr* es>)`)
 //  = <>
