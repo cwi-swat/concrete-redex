@@ -38,16 +38,16 @@ except when a term is a scope that bindgs `var`.}
 private Tree traverseSubst(type[&T<:Tree] typ, type[&V<:Tree] varType, 
   Maybe[&T](&T, &V, &T) doit, Tree subj, &V var, &T exp, Refs refs) {
   
-  if (&T tsubj := subj, just(Tree x) := doit(tsubj, var, exp)) {
-    // we have found the variable
-    return replace(exp);
-  }
-
   if (subj@\loc?, loc scope := subj@\loc, <loc def, var, scope, def> <- refs) {
     // subject is a binder of var; don't continue.
     return subj;
   } 
   
+  if (&T tsubj := subj, just(Tree x) := doit(tsubj, var, exp)) {
+    // we have found the variable
+    return replace(exp);
+  }
+
   if (appl(_, _) := subj) {
     // do the recursion
     Tree t2 = appl(subj.prod, [ traverseSubst(typ, varType, doit, a, var, exp, refs) | Tree a <- subj.args ]);
