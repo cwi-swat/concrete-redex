@@ -6,15 +6,15 @@ extend lang::std::Id;
 syntax AExp
   = Int 
   | Id
-  | left AExp "/" AExp  
-  > left AExp "+" AExp
+  | left div: AExp "/" AExp  
+  > left add: AExp "+" AExp
   ;
   
 syntax BExp
   = Bool
-  | "not" BExp
-  | AExp "\<=" AExp
-  | left BExp "and" BExp
+  | not: "not" BExp
+  | leq: AExp "\<=" AExp
+  | left and: BExp "and" BExp
   ;
   
 lexical Bool
@@ -29,10 +29,10 @@ lexical Int_
   
 
 syntax Stmt
-  = Id ":=" AExp
+  = assign: Id ":=" AExp
   | "skip"
-  | left Stmt ";" Stmt // no lists for now
-  | "if" BExp "then" Stmt "else" Stmt "fi"
+  | left seq: Stmt ";" Stmt // no lists for now
+  | ite: "if" BExp "then" Stmt "else" Stmt "fi"
   | "while" BExp "do" Stmt "od"
   ;
  

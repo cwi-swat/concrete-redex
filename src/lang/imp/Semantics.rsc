@@ -53,6 +53,15 @@ Conf example()
           '    y := 0 
           '  fi`;
 
+Stmt exampleStmt() 
+  = (Stmt)`x := 1 + 2; 
+          '  y := x + 2; 
+          '  if x \<= y then 
+          '    x := x + y 
+          '  else 
+          '    y := 0 
+          '  fi`;
+
 CR rule("lookup", c:(C)`<State s> ⊢ <S _>`, (AExp)`<Id x>`)
   = <c, (AExp)`<Int i>`>
   when 
