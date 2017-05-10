@@ -13,8 +13,8 @@ extend lang::std::Id;
 syntax Expr
   = Id \ "if0"
   | Value
-  | "(" Expr+ ")"
-  | "(" "if0" Expr Expr Expr ")"
+  | apply: "(" Expr+ ")"
+  | if0: "(" "if0" Expr Expr Expr ")"
   ; 
 
   
