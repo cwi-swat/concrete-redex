@@ -15,10 +15,22 @@ import IO;
 
 alias TypeMap = map[Symbol, type[node]];
 
+&T plug(type[&T<:Tree] typ, node ctx, &T term, Tree reduct) {
+  // traverse ctx and term in simultaneously, until hole(), then put in reduct.
+  
+  holeLocs = [ l | /"hole"(loc l) := ctx ];
+  assert size(holeLocs) == 1: "multiple holes in context";
+
+  return visit (term) {
+    case Tree t => reduct
+      when t@\loc?, t@\loc == holeLocs[0]
+  }
+}
+
 @doc{Match a tree according to the data type ctx and produce all matches.
 The extra reified types are needed to construct correct context values
 when there is more than one context ADT (e.g. many-sorted contexts).}
-rel[&C, Tree] toCtx(type[&C<:node] ctx, Tree t, type[node] ctxes...) {
+rel[&C, Tree] split(type[&C<:node] ctx, Tree t, type[node] ctxes...) {
   typeMap = ( typ.symbol: typ | typ <- ctxes + [ctx] );
   
   cs = {};
@@ -101,7 +113,7 @@ default void toCtx(TypeMap tm, Symbol s, list[Tree] args, void(list[value], list
 void toCtx(TypeMap tm, cons(label(str name, Symbol ctxSym), list[Symbol] syms, _, _), Tree t, void(node, list[Tree]) k) {
   if (name == "hole") {
     //println("Found hole: <ctxSym>");
-    k(make(tm[ctxSym], "hole", []), [t]);
+    k(make(tm[ctxSym], "hole", [t@\loc]), [t]);
   }
   else if (label(name, _) := t.prod.def) {
     //println("trying prod <t.prod>");
@@ -121,7 +133,7 @@ void toCtx(TypeMap tm, choice(_, set[Production] alts), Tree t, void(node, list[
 @doc{Convert a context value to string}
 str ctx2str(value ctx) {
   switch (ctx) {
-    case "hole"(): return "☐";
+    case "hole"(_): return "☐";
     case Tree t: return "<t>";
     case list[value] l: return "[<intercalate(", ", [ ctx2str(x) | value x <- l ])>]";
     case node n: return "<getName(n)>(<intercalate(", ", [ ctx2str(x) | value x <- getChildren(n) ])>)";

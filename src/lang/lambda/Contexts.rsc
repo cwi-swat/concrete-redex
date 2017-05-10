@@ -11,6 +11,6 @@ import Node;
 data E
   = apply(list[Value] vals, E ctx, list[Expr] exprs)
   | if0(E ctx, Expr then, Expr els)
-  | hole()
+  | hole(loc redex)
   ;
   
