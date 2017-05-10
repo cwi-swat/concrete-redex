@@ -4,6 +4,7 @@ import lang::scheme::Scheme;
 import credex::Substitution;
 import ParseTree;
 import util::Maybe;
+import IO;
 
 Expr mySubst(Expr e, Expr x, Expr y)
   = substitute(#Expr, #Id, #Expr, e, x, y, resolve);
@@ -20,14 +21,23 @@ Refs resolve(Expr exp, Scope sc, Lookup lu) {
     
     case (Expr)`(letrec (<Binding* bs>) <Expr e>)`: {
       set[Id] xs = {};
+      
       for ((Binding)`(<Id x> <Expr ex>)` <- bs) {
-        refs += { <x@\loc, x, ex@\loc, x@\loc>, <x@\loc, x, e@\loc, x@\loc> }; // defs refer to themselves
+        // defs refer to themselves, and they all scope over e
+        refs += {<x@\loc, x, e@\loc, x@\loc> }; 
         xs += {x};
+      }
+      
+      for ((Binding)`(<Id _> <Expr ex>)` <- bs) {
+        // for every ex, let all xs scope over it.
+        refs += { <x@\loc, x, ex@\loc, x@\loc> | Id x <- xs };
+        
+        // resolve ex with all xs in scope.
+        refs += resolve(ex, [ {<ex@\loc, x@\loc, x> |  Id x <- xs }, *sc ], lu); 
         
       }
-      for ((Binding)`(<Id _> <Expr ex>)` <- bs) {
-        refs += resolve(ex,  [ {<ex@\loc, x@\loc, x> |  Id x <- xs }, *sc ], lu); 
-      }
+      
+      // resolve e, with all xs in scope 
       refs += resolve(e, [ {<e@\loc, x@\loc, x> |  Id x <- xs }, *sc ], lu); 
     } 
 

@@ -62,7 +62,7 @@ Expr exampleWithFreeVars()
  = (Expr)`(if0 n 1 ((λ (x) (x n)) n))`;
   
 test bool simpleCapture()
-  = mySubst((Expr)`(λ (x) (+ x y))`, (Expr)`y`, (Expr)`x`) == (Expr)`(λ (x_) (+ x_ x))`;   
+  = (Expr)`(λ (x_) (+ x_ x))` := mySubst((Expr)`(λ (x) (+ x y))`, (Expr)`y`, (Expr)`x`);   
   
 void runLambda(Expr e) = run(#Expr, #E, e, {"+", "if0f", "if0t", "βv"}); 
 
