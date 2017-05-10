@@ -8,33 +8,36 @@ import IO;
 
 /*
  * TODO:
- * - many sorted contexts: requires different param to `make`
  * - remove payload function
  * - support hybrid terms (so not just Tree, but also ADTs with maps etc.)
  * - produce the hole/redex immediately.
+ * - fix uninject for lexicals... (classcast exception)
  */
 
 alias TypeMap = map[Symbol, type[node]];
 
-@doc{Match a tree according to the data type ctx and produce all matches}
-list[&C] toCtx(type[&C<:node] ctx, Tree t, type[node] ctxes...) {
+@doc{Match a tree according to the data type ctx and produce all matches.
+The extra reified types are needed to construct correct context values
+when there is more than one context ADT (e.g. many-sorted contexts).}
+lrel[&C, Tree] toCtx(type[&C<:node] ctx, Tree t, type[node] ctxes...) {
   typeMap = ( typ.symbol: typ | typ <- ctxes + [ctx] );
   
   cs = [];
-  toCtx(typeMap, ctx.definitions[ctx.symbol], t, void(node n) {
+  toCtx(typeMap, ctx.definitions[ctx.symbol], t, void(node n, list[Tree] redex) {
     println("Succes: <ctx2str(n)>");
-    cs += [typeCast(ctx, n)];
+    assert size(redex) == 1: "multiple redexes";
+    cs += [<typeCast(ctx, n), redex[0]>];
   });
   
-  return [];
-  //return cs;
+  //return [];
+  return cs;
 }
 
 @doc{Convert a list of tree arguments to list of context arguments based on a list of symbols}
-void toCtx(TypeMap tm, list[Symbol] syms, list[Tree] args, void(list[value]) k) {
+void toCtx(TypeMap tm, list[Symbol] syms, list[Tree] args, void(list[value], list[Tree]) k) {
   if (syms == []) {
     if (args == []) {
-      k([]);
+      k([], []);
     }
     return;
   }
@@ -44,52 +47,52 @@ void toCtx(TypeMap tm, list[Symbol] syms, list[Tree] args, void(list[value]) k) 
   int payload(list[value] xs) = ( 0 | it + payload(x) | value x <- xs );
   default int payload(value x) = 1;
 
-  toCtx(tm, syms[0], args, void(list[value] ns1) {
+  toCtx(tm, syms[0], args, void(list[value] ns1, list[Tree] r1) {
      println("matched <syms[0]> -\> <ctx2str(ns1)>");
-     toCtx(tm, syms[1..], args[payload(ns1)..], void(list[value] ns2) {
+     toCtx(tm, syms[1..], args[payload(ns1)..], void(list[value] ns2, list[Tree] r2) {
         println("matched <syms[1..]> -\> <ctx2str(ns2)>");
-        k(ns1 + ns2);
+        k(ns1 + ns2, r1 + r2);
      });
   });
 }
 
 
 @doc{Convert a list of tree arguments to list of context arguments based on symbol}
-void toCtx(TypeMap tm, \list(Symbol elt), list[Tree] args, void(list[value]) k) {
+void toCtx(TypeMap tm, \list(Symbol elt), list[Tree] args, void(list[value], list[Tree]) k) {
   //println("list elem");
   int i = 0;
   list[value] ns = [];
 
-  k([ns]); // empty; TODO: turn into 1 do-while loop.
+  k([ns], []); // empty; TODO: turn into 1 do-while loop.
   while (i < size(args), match(elt, args[i])) {
    ns += [uninject(elt, args[i])];
    i += 1;
-   k([ns]);
+   k([ns], []); // NB: we don't allow lists of contexts, so [] as redexes is ok.
   }
 }
 
 
-void toCtx(TypeMap tm, s:adt(_, _), list[Tree] args, void(list[value]) k) {
+void toCtx(TypeMap tm, s:adt(_, _), list[Tree] args, void(list[value], list[Tree]) k) {
  if (args == []) {
    return;
  }
  println("trying prods of <s>");
- toCtx(tm, tm[s].definitions[s], args[0], void(node n) {
-   k([n]);
+ toCtx(tm, tm[s].definitions[s], args[0], void(node n, list[Tree] redex) {
+   k([n], redex);
  });
 } 
  
 
-void toCtx(TypeMap tm, label(_,  Symbol s), list[Tree] args, void(list[value]) k) 
+void toCtx(TypeMap tm, label(_,  Symbol s), list[Tree] args, void(list[value], list[Tree]) k) 
   = toCtx(tm, s, args, k);
 
-default void toCtx(TypeMap tm, Symbol s, list[Tree] args, void(list[value]) k) {
+default void toCtx(TypeMap tm, Symbol s, list[Tree] args, void(list[value], list[Tree]) k) {
   println("trying symbol <s>");
   if (args == []) {
     return;
   }
   if (match(s, args[0])) {
-    k([uninject(s, args[0])]);
+    k([uninject(s, args[0])], []);
   }
   else {
     println("****** failed to match \'<args[0]>\' (<args[0].prod>) to <s>");
@@ -97,7 +100,7 @@ default void toCtx(TypeMap tm, Symbol s, list[Tree] args, void(list[value]) k) {
 }
 
 @doc{Converting a tree to a context based on production}
-void toCtx(TypeMap tm, cons(label(str name, Symbol ctxSym), list[Symbol] syms, _, _), Tree t, void(node) k) {
+void toCtx(TypeMap tm, cons(label(str name, Symbol ctxSym), list[Symbol] syms, _, _), Tree t, void(node, list[Tree]) k) {
   if (name == "hole") {
     println("Found hole: <ctxSym>");
     //println(ctxSym);
@@ -105,17 +108,17 @@ void toCtx(TypeMap tm, cons(label(str name, Symbol ctxSym), list[Symbol] syms, _
     // is this a special case of the below one?
     // how to get the proper #type of the symbol ctxSym?
     // otherwise it only works single sorted...
-    k(make(tm[ctxSym], name, [t]));
+    k(make(tm[ctxSym], "hole", []), [t]);
   }
   else if (label(name, _) := t.prod.def) {
     println("trying prod <t.prod>");
-    toCtx(tm, syms, astArgs(t), void(list[value] args) {
-      k(make(tm[ctxSym], name, args));
+    toCtx(tm, syms, astArgs(t), void(list[value] args, list[Tree] redex) {
+      k(make(tm[ctxSym], name, args), redex);
     }); 
   }
 }
 
-void toCtx(TypeMap tm, choice(_, set[Production] alts), Tree t, void(node) k) {
+void toCtx(TypeMap tm, choice(_, set[Production] alts), Tree t, void(node, list[Tree]) k) {
   println("Alts: <alts>");
   for (Production a <- alts) {
     toCtx(tm, a, t, k);
