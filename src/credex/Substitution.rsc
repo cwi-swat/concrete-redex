@@ -35,59 +35,66 @@ private Tree replace(Tree t) {
 
 @doc{Recursively traverse a term, and apply substitutions throughout,
 except when a term is a scope that bindgs `var`.}
-private Tree traverseSubst(type[&T<:Tree] typ, type[&V<:Tree] varType, 
-  Maybe[&T](&T, &V, &T) doit, Tree subj, &V var, &T exp, Refs refs) {
+private Tree traverseSubst(Tree subj, Tree var, Tree exp, Refs refs) {
   
   if (subj@\loc?, loc scope := subj@\loc, <loc def, var, scope, def> <- refs) {
-    // subject is a binder of var; don't continue.
+    // subject is scope of a binder of var; don't continue.
     return subj;
   } 
   
-  if (&T tsubj := subj, just(Tree x) := doit(tsubj, var, exp)) {
+  if (subj == var) {
+    // &T tsubj := subj, just(Tree x) := doit(tsubj, var, exp)) {
     // we have found the variable
     return replace(exp);
   }
 
-  if (appl(_, _) := subj) {
+  if (appl(Production p, list[Tree] args) := subj) {
     // do the recursion
-    Tree t2 = appl(subj.prod, [ traverseSubst(typ, varType, doit, a, var, exp, refs) | Tree a <- subj.args ]);
-    if (subj@\loc?) {
-     t2@\loc = subj@\loc;
-    }
-    return t2;
+    Tree t2 = appl(p, [ traverseSubst(a, var, exp, refs) | Tree a <- args ]);
+    return subj@\loc? ? t2[@\loc=subj@\loc] : t2;
   }
   
   // otherwise, return unchanged.
   return subj;
 }
 
+Refs justResolve(type[&T<:Tree] typ, &T t, Refs(&T, Scope, Lookup) myResolve) {
+  rel[loc, loc] lu(Tree name, loc use, Scope sc) 
+    = { <scope, def> | Env env <- sc, <loc scope, loc def, name> <- env };
+  return myResolve(t, [], lu);
+}
+
+map[loc, Tree] namePatch(type[&T<:Tree] typ, type[&T<:Tree] varType, &T t, 
+   Refs(&T, Scope, Lookup) myResolve, &V(&V) myPrime) {
+
+   Resolver resolver = makeResolver(varType, myPrime);
+   Refs refs = myResolve(t, [], resolver.lookup);
+
+   return resolver.getRenaming(refs);
+}
+
+&T rename(type[&T<:Tree] typ, &T term, map[loc, Tree] renaming) {
+  return visit (term) {
+    case Tree t => renaming[t@\loc]
+      when t@\loc?, t@\loc in renaming
+  };
+}
+
 @doc{Capture-avoiding substitution. This function uses the provided syntactic
 substitution function `mySubst` and custom name resolution function `myResolve`
 to fix name capturing after substitution has taken place. Function `myPrime`
 is used to produce new names.}
-&T substitute(type[&T<:Tree] termType, type[&V<:Tree] varType, type[&R<:Tree] replaceType, &T t, &V x, &R sub,
-   Maybe[&R](&R, &V, &R) mySubst, Refs(&T, Scope, Lookup) myResolve, &V(&V) myPrime) {
+&T substitute(type[&T<:Tree] termType, type[&V<:Tree] varType, type[&R<:Tree] replaceType, &T t, &R x, &R sub,
+   Refs(&T, Scope, Lookup) myResolve, &V(&V) myPrime) {
   round += 1;
-
-  rel[loc, loc] lu(Tree name, loc use, Scope sc) {
-    if (Env env <- sc, <loc scope, loc def, name> <- env) {
-      return {<scope, def>};
-    }
-    return {};
-  }
   
-  Refs refs = myResolve(t, [], lu);
+  // resolve the term, so that traverseSubst knows 
+  // the scope of binders to guide the substitution.
+  Refs refs = justResolve(termType, t, myResolve);
 
-  if (&T newT := traverseSubst(replaceType, varType, mySubst, t, x, sub, refs)) {
-    Resolver resolver = makeResolver(varType, myPrime);
-    Refs refs = myResolve(newT, [], resolver.lookup);
-    renaming = resolver.getRenaming(refs);
-  
-    &T renamedT = visit (newT) {
-      case Tree z => renaming[z@\loc]
-        when z@\loc?, z@\loc in renaming
-    };
-    return renamedT;
+  if (&T newT := traverseSubst(t, x, sub, refs)) {
+    map[loc, Tree] renaming = namePatch(termType, varType, newT, myResolve, myPrime);
+    return rename(termType, newT, renaming);
   }
   
   assert false: "traverseSubst not type-preserving!";
@@ -101,12 +108,9 @@ set[&V] freeVars(type[&T<:Tree] termType, type[&V<:Tree] varType, &T t,
   
   rel[loc, loc] lu(Tree name, loc use, Scope sc) {
     if (Env env <- sc, <_, loc def, name> <- env, !isCapture(use, def)) {
-      ; // we found a definition, so *not* free.
+      return {}; // we found a definition, so *not* free.
     }
-    else {
-      fv += { v | &V v := name };
-    }
-    return {};
+    fv += { v | &V v := name };
   } 
     
   myResolve(t, [], lu);
@@ -133,13 +137,11 @@ private Resolver makeResolver(type[&T<:Tree] varType, &T(&T) myPrime) {
   map[loc, Tree] toRename = ();
   
   rel[loc, loc] lookup__(Tree name, loc use, Scope sc) {
-    //println("lookup of <name> at <use>");
     for (Env env <- sc, <loc scope, loc def, name> <- env) {
       if (!isCapture(use, def)) { 
-        //println("No Capture");
+        // TODO: return all non-capturing defs in single scope (?)
         return {<scope, def>};
       }
-      //println("Capture");
       // captures are renamed until a non-capturing decl is found
       toRename[def] = name;
     }
@@ -147,9 +149,12 @@ private Resolver makeResolver(type[&T<:Tree] varType, &T(&T) myPrime) {
     return {};
   }
   
+  // TODO: maybe there's a little too much logic in this local function
+  // the only essential thing is the toRename map.
   map[loc, Tree] getRenaming__(Refs refs) {
     map[loc, Tree] ren = ();
-    set[Tree] allNames = refs.name;
+    // TODO: allnames does not include free vars, is that a problem?
+    set[Tree] allNames = refs.name; 
     for (loc d <- toRename) {
       Tree n = fresh(varType, toRename[d], allNames, myPrime);
       allNames += {n};

@@ -11,8 +11,13 @@ syntax Expr
   | "(" "set!" Id Expr ")"
   | "(" "begin" Expr+ ")"
   | "(" "if" Expr Expr Expr ")"
-  | Id \ "begin" \ "if"
+  | "(" "letrec" "(" Binding* ")" Expr ")"
+  | Id //\ "begin" \ "if" \ "letrec" \ "lambda" \ "-"
   | Value
+  ;
+
+syntax Binding
+  = "(" Id Expr ")"
   ;
 
 syntax Value
@@ -29,5 +34,5 @@ lexical Num
   ;
 
 lexical Id
-  = ([a-zA-Z][0-9a-zA-Z_\-]* !>> [0-9a-zA-Z_\-]) \ "begin" \ "if" \ "-" \ "unspecified" \ "lambda"
+  = ([a-zA-Z][0-9a-zA-Z_\-]* !>> [0-9a-zA-Z_\-]) \ "begin" \ "if" \ "-" \ "unspecified" \ "lambda" \ "letrec"
   ;

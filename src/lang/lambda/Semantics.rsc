@@ -34,17 +34,14 @@ CR rule("βv", E e, (Expr)`((λ (<Id* xs>) <Expr body>) <Expr* args>)`)
     list[Id] xl := [ x | Id x <- xs ],
     list[Expr] el := [ a | Expr a <- args ],
     size(xl) == size(el),
-    Expr newBody := ( body | mySubst(it, xl[i], el[i]) | int i <- [0..size(xl)] );
+    Expr newBody := ( body | mySubst(it, (Expr)`<Id x>`, el[i]) | int i <- [0..size(xl)], Id x := xl[i] );
   
 bool allValue(Expr* es) = ( true | it && (Expr)`<Value _>` := e | Expr e <- es );
 
-Expr mySubst(Expr e, Id x, Expr y)
-  = substitute(#Expr, #Id, #Expr, e, x, y, subst, resolve, prime);
+Expr mySubst(Expr e, Expr x, Expr y)
+  = substitute(#Expr, #Id, #Expr, e, x, y, resolve, prime);
 
 Id prime(Id x) = [Id]"<x>_";
-
-Maybe[Expr] subst(Expr s, Id x, Expr e)
-  = (Expr)`<Id z>` := s && x == z ? just(e) : nothing();
 
 Refs resolve(Expr exp, Scope sc, Lookup lu) {
   Refs refs = {};
@@ -67,7 +64,7 @@ Expr exampleWithFreeVars()
  = (Expr)`(if0 n 1 ((λ (x) (x n)) n))`;
   
 test bool simpleCapture()
-  = mySubst((Expr)`(λ (x) (+ x y))`, (Id)`y`, (Expr)`x`) == (Expr)`(λ (x_) (+ x_ x))`;   
+  = mySubst((Expr)`(λ (x) (+ x y))`, (Expr)`y`, (Expr)`x`) == (Expr)`(λ (x_) (+ x_ x))`;   
   
 void runLambda(Expr e) = run(#Expr, #E, e, {"+", "if0f", "if0t", "βv"}); 
 
