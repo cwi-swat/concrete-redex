@@ -9,7 +9,7 @@ import Node;
 
 data E
   = apply(list[Value] vals, E ctx, list[Expr] exprs)
-  //| if0(E ctx, Expr then, Expr els)
+  | if0(E ctx, Expr then, Expr els)
   | hole(Expr expr)
   ;
   
@@ -23,11 +23,12 @@ apply([+, 1], 2, []);
 
 */
   
-str ctx2str(node ctx) {
+str ctx2str(value ctx) {
   switch (ctx) {
     case Tree t: return "<t>";
-    case list[node] l: return "[<intercalate(", ", [ ctx2str(x) | node x <- l ])>]";
-    case node n: return "<getName(n)>(<intercalate(", ", [ ctx2str(x) | node x <- getChildren(n) ])>)";
+    case list[value] l: return "[<intercalate(", ", [ ctx2str(x) | value x <- l ])>]";
+    case node n: return "<getName(n)>(<intercalate(", ", [ ctx2str(x) | value x <- getChildren(n) ])>)";
+    default: return "<ctx>";
   }
 }  
   
@@ -177,7 +178,13 @@ void toctx(type[&C<:node] ctx, cons(label(str name, _), list[Symbol] syms, _, _)
        }
       }
       println("size of args <size(args)>");
-      thing = make(ctx, name, args);
+      
+      &C thing = make(ctx, name, args);
+      if (list[Value] a1 := args[0], E a2 := args[1], list[Expr] a3 := args[2]) {
+        println("Matched!");
+        println(apply);
+        thing = apply(a1, a2, a3);
+      } 
       println(ctx2str(thing));
       k(thing);
     }); 
