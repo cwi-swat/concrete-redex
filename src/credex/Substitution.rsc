@@ -32,7 +32,6 @@ private Tree replace(Tree t) {
   return t;  
 }
 
-
 @doc{Recursively traverse a term, and apply substitutions throughout,
 except when a term is a scope that bindgs `var`.}
 private Tree traverseSubst(Tree subj, Tree var, Tree exp, Refs refs) {
@@ -65,9 +64,9 @@ Refs justResolve(type[&T<:Tree] typ, &T t, Refs(&T, Scope, Lookup) myResolve) {
 }
 
 map[loc, Tree] namePatch(type[&T<:Tree] typ, type[&T<:Tree] varType, &T t, 
-   Refs(&T, Scope, Lookup) myResolve, &V(&V) myPrime) {
+   Refs(&T, Scope, Lookup) myResolve) {
 
-   Resolver resolver = makeResolver(varType, myPrime);
+   Resolver resolver = makeResolver(varType);
    Refs refs = myResolve(t, [], resolver.lookup);
 
    return resolver.getRenaming(refs);
@@ -85,7 +84,7 @@ substitution function `mySubst` and custom name resolution function `myResolve`
 to fix name capturing after substitution has taken place. Function `myPrime`
 is used to produce new names.}
 &T substitute(type[&T<:Tree] termType, type[&V<:Tree] varType, type[&R<:Tree] replaceType, &T t, &R x, &R sub,
-   Refs(&T, Scope, Lookup) myResolve, &V(&V) myPrime) {
+   Refs(&T, Scope, Lookup) myResolve) {
   round += 1;
   
   // resolve the term, so that traverseSubst knows 
@@ -93,7 +92,7 @@ is used to produce new names.}
   Refs refs = justResolve(termType, t, myResolve);
 
   if (&T newT := traverseSubst(t, x, sub, refs)) {
-    map[loc, Tree] renaming = namePatch(termType, varType, newT, myResolve, myPrime);
+    map[loc, Tree] renaming = namePatch(termType, varType, newT, myResolve);
     return rename(termType, newT, renaming);
   }
   
@@ -118,11 +117,21 @@ set[&V] freeVars(type[&T<:Tree] termType, type[&V<:Tree] varType, &T t,
   return fv;
 }
 
+@doc{Derive a new name from `x`.}
+&T prime(type[&T<:Tree] varType, &T x) 
+  = y
+  when 
+    appl(Production p, list[Tree] args) := x,
+    &T y := appl(p, args + [char(95)]);
+
+//TODO: this doesn't work because of the reified type/parsing bug
+//&T prime(type[&T<:Tree] varType, &T x) = parse(varType, "<x>_");
+  
 @doc{Obtain a fresh name relative to the set `names`. The function
 `myPrime` is used to create new names.}
-&T fresh(type[&T<:Tree] varType, &T x, set[&T] names, &T(&T) myPrime) {
+&T fresh(type[&T<:Tree] varType, &T x, set[&T] names) {
   while (x in names) {
-    x = myPrime(x);
+    x = prime(varType, x);
   }
   return x;
 }
@@ -133,7 +142,7 @@ current round, but the round of `def` is absent or less than it.}
 private bool isCapture(loc use, loc def) 
   = use.fragment == "<round>" && def.fragment != "<round>";
 
-private Resolver makeResolver(type[&T<:Tree] varType, &T(&T) myPrime) {
+private Resolver makeResolver(type[&T<:Tree] varType) {
   map[loc, Tree] toRename = ();
   
   rel[loc, loc] lookup__(Tree name, loc use, Scope sc) {
@@ -156,7 +165,7 @@ private Resolver makeResolver(type[&T<:Tree] varType, &T(&T) myPrime) {
     // TODO: allnames does not include free vars, is that a problem?
     set[Tree] allNames = refs.name; 
     for (loc d <- toRename) {
-      Tree n = fresh(varType, toRename[d], allNames, myPrime);
+      Tree n = fresh(varType, toRename[d], allNames);
       allNames += {n};
       ren[d] = n;
       ren += ( u: n | <loc u, _, _, d> <- refs ); 

@@ -39,9 +39,7 @@ CR rule("βv", E e, (Expr)`((λ (<Id* xs>) <Expr body>) <Expr* args>)`)
 bool allValue(Expr* es) = ( true | it && (Expr)`<Value _>` := e | Expr e <- es );
 
 Expr mySubst(Expr e, Expr x, Expr y)
-  = substitute(#Expr, #Id, #Expr, e, x, y, resolve, prime);
-
-Id prime(Id x) = [Id]"<x>_";
+  = substitute(#Expr, #Id, #Expr, e, x, y, resolve);
 
 Refs resolve(Expr exp, Scope sc, Lookup lu) {
   Refs refs = {};
