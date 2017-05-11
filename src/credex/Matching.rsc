@@ -11,21 +11,56 @@ import IO;
  * - remove payload function
  * - support hybrid terms (so not just Tree, but also ADTs with maps etc.)
  * - fix uninject for lexicals... (classcast exception)
+ * - store problem in plug
+ * - not possible to put contexts into terms (e.g. for callcc).
  */
 
-alias TypeMap = map[Symbol, type[node]];
+/*
 
+Make simplifying assumption: hole is always in a Tree
+so do simul traversal, updating values in conf from context
+when hit tree, do the loc trick.
+
+*/
+
+@doc{Plug the reduct back into original term where the context's hole is located.}
 &T plug(type[&T<:Tree] typ, node ctx, &T term, Tree reduct) {
   // traverse ctx and term in simultaneously, until hole(), then put in reduct.
+  // for now it's doing two traversals, for simplicity's sake.
+  // this is wrong! We lose changes in the context, even it contains
+  // a concrete store for instance; hence we need simul traversal.
+  // which is rather complicated because of injections, astArgs and flattening.
+  // Q: do we need to have stores etc. be part of the term?
+  // it could still be an extra param in the reduction relation,
+  // but then you have to declare it everywhere, even if you don't access it.
+  // so we need adts as configurations + ordinary values.
+  /*
+  can we use keyword params? But what about the result type?
   
+  CR rule("lookup", (AExp)`<Id x>`))
+  = <s, (AExp)`<Int i>`>
+  when 
+    isDefined(x, s), 
+    Int i := lookup(x, s); 
+
+
+  CR rule("add", (AExp)`<Int i1> + <Int i2>`) =  (AExp)`<Int i>` 
+  when
+    int n1 := toInt("<i1>"),
+    int n2 := toInt("<i2>"),
+    Int i := [Int]"<n1 + n2>";
+  
+  
+  */
   holeLocs = [ l | /"hole"(loc l) := ctx ];
   assert size(holeLocs) == 1: "multiple holes in context";
 
   return visit (term) {
-    case Tree t => reduct
-      when t@\loc?, t@\loc == holeLocs[0]
+    case Tree t => reduct when t@\loc?, t@\loc == holeLocs[0]
   }
 }
+
+alias TypeMap = map[Symbol, type[value]];
 
 @doc{Match a tree according to the data type ctx and produce all matches.
 The extra reified types are needed to construct correct context values
@@ -53,7 +88,7 @@ void toCtx(TypeMap tm, list[Symbol] syms, list[Tree] args, void(list[value], lis
   }
 
   // TODO: pass a delta int into the continuation to avoid this function.
-  // this also does not work for nested lists..
+  // this also accidentally flattens nested lists..
   int payload(list[value] xs) = ( 0 | it + payload(x) | value x <- xs );
   default int payload(value x) = 1;
 
@@ -75,13 +110,14 @@ void toCtx(TypeMap tm, \list(Symbol elt), list[Tree] args, void(list[value], lis
 
   k([ns], []); // empty; TODO: turn into 1 do-while loop.
   while (i < size(args), match(elt, args[i])) {
-   ns += [uninject(elt, args[i])];
-   i += 1;
-   k([ns], []); // NB: we don't allow lists of contexts, so [] as redexes is ok.
+    ns += [uninject(elt, args[i])];
+    i += 1;
+    k([ns], []); // NB: we don't allow lists of contexts, so [] as redexes is ok.
   }
 }
 
-
+// TODO: change list[Tree] -> list[value]
+// add cases for other type constructors (map,list,set) etc.
 void toCtx(TypeMap tm, s:adt(_, _), list[Tree] args, void(list[value], list[Tree]) k) {
  if (args == []) {
    return;
@@ -111,9 +147,11 @@ default void toCtx(TypeMap tm, Symbol s, list[Tree] args, void(list[value], list
 
 @doc{Converting a tree to a context based on production}
 void toCtx(TypeMap tm, cons(label(str name, Symbol ctxSym), list[Symbol] syms, _, _), Tree t, void(node, list[Tree]) k) {
+  // here we need another case distinction: if t is not a tree, but a node
+  // then, do not do astArgs etc.
   if (name == "hole") {
     //println("Found hole: <ctxSym>");
-    k(make(tm[ctxSym], "hole", [t@\loc]), [t]);
+    k(make(tm[ctxSym], "hole", [t@\loc? ? t@\loc : |tmp:///dummy|]), [t]);
   }
   else if (label(name, _) := t.prod.def) {
     //println("trying prod <t.prod>");
@@ -124,19 +162,18 @@ void toCtx(TypeMap tm, cons(label(str name, Symbol ctxSym), list[Symbol] syms, _
 }
 
 void toCtx(TypeMap tm, choice(_, set[Production] alts), Tree t, void(node, list[Tree]) k) {
-  //println("Alts: <alts>");
   for (Production a <- alts) {
     toCtx(tm, a, t, k);
   } 
 }
 
 @doc{Convert a context value to string}
-str ctx2str(value ctx) {
+str ctx2str(value ctx, bool printLoc = false) {
   switch (ctx) {
-    case "hole"(_): return "☐";
+    case "hole"(loc l): return printLoc ? "[<l>]" : "☐";
     case Tree t: return "<t>";
-    case list[value] l: return "[<intercalate(", ", [ ctx2str(x) | value x <- l ])>]";
-    case node n: return "<getName(n)>(<intercalate(", ", [ ctx2str(x) | value x <- getChildren(n) ])>)";
+    case list[value] l: return "[<intercalate(", ", [ ctx2str(x, printLoc=printLoc) | value x <- l ])>]";
+    case node n: return "<getName(n)>(<intercalate(", ", [ ctx2str(x, printLoc=printLoc) | value x <- getChildren(n) ])>)";
     default: return "<ctx>";
   }
 }  
