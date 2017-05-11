@@ -4,6 +4,7 @@ import ParseTree;
 import IO;
 import List;
 import String;
+import Type;
 import util::Maybe;
 
 
@@ -51,7 +52,7 @@ taken place.}
   assert validRefs(refs): "invalid reference graph";
 
   // do the actual recursive substitution
-  &T newT = asType(termType, substRec(t, x, sub, refs, round));
+  &T newT = typeCast(termType, substRec(t, x, sub, refs, round));
   
   // resolve again, this time detecting capture and constructing renaming.
   map[loc, Tree] renaming = namePatch(termType, varType, newT, resolve);
@@ -149,10 +150,6 @@ bool validRefs(Refs refs) {
   
   return usesWithBadNameOrScope == {};
 }
-
-@doc{Helper "cast" function.}
-private &T asType(type[&T] typ, value v) = t
-  when &T t := v; 
 
 @doc{Compute set of free variables according to provided resolve function.}
 set[&V] freeVars(type[&T<:Tree] termType, type[&V<:Tree] varType, &T t, Refs(&T, Scope, Lookup) resolve) {
