@@ -35,7 +35,7 @@ Refs resolve((Expr)`<Id x>`, list[Env] envs, Lookup lu)
   
 Refs resolve((Expr)`(λ (<Id x>) <Expr e>)`, list[Env] envs, Lookup lu)
   = {<x@\loc, x, e@\loc, x@\loc>} // decls self-refer
-  + resolve(e, [{<e@\loc, x@\loc, x>}, *envs], lu);
+  + resolve(e, [{<e@\loc, x@\loc, x>}] + envs, lu);
 
 default Refs resolve(Expr _, list[Env] _, Lookup _) = {};
 

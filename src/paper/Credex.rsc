@@ -17,7 +17,11 @@ alias T = lrel[Tree from, Tree to]; // traces
 
 R reduce(type[&C<:Tree] ct, type[&T<:Tree] tt, CR(str,&C,Tree) red, &T t, set[str] rules)
   = { typeCast(#Tree, plug(tt, ctx2, rt)) |  <ctx1, rx> <- split(ct, t), //bprintln(ctx1), bprintln(rx), 
-     str r <- rules,  <ctx2, rt> <- red(r, ctx1, rx) };
+     str r <- rules,
+     //bprintln("trying [<r>] on <rx>]"),
+      <ctx2, rt> <- red(r, ctx1, rx)
+      //bprintln("success: <rt>") 
+    };
 
 T trace(R(&T<:Tree) step, &T t0) {
   T trace = [];
@@ -40,7 +44,7 @@ T trace(R(&T<:Tree) step, &T t0) {
  */
 
 rel[Tree,Tree] split(type[&T<:Tree] ctxType, Tree t) {
-  ctx = parse(ctxType, "<t>", allowAmbiguity=true);
+  ctx = parse(ctxType, "<t>", t@\loc, allowAmbiguity=true);
   
   rel[Tree, Tree] result = {};
   flattenAmbs(ctx, (Tree alt, Tree redex) {

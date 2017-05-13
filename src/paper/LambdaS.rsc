@@ -55,7 +55,7 @@ Refs resolve((Expr)`(set! <Id x> <Expr e>)`, list[Env] envs, Lookup lu)
 Refs resolve((Expr)`(let ((<Id x> <Expr e>)) <Expr b>)`, list[Env] envs, Lookup lu) 
   = {<x@\loc, x, b@\loc, x@\loc>} // decls self-refer
   + resolve(e, envs, lu)
-  + resolve(b, [{<b@\loc, x@\loc, x>}, *envs], lu);
+  + resolve(b, [{<b@\loc, x@\loc, x>}] + envs, lu);
 
 /*
  * Lookup/update functions on store.
@@ -64,7 +64,7 @@ Refs resolve((Expr)`(let ((<Id x> <Expr e>)) <Expr b>)`, list[Env] envs, Lookup 
 bool isDefined((Store)`<{IdValue ","}* _>, <Id y> ↦ <Value v>, <{IdValue ","}* _>`, Id x) = true
   when x == y;
 
-default bool isDefined(Store _) = false;
+default bool isDefined(Store _, Id _) = false;
   
 Value lookup((Store)`<{IdValue ","}* _>, <Id y> ↦ <Value v>, <{IdValue ","}* _>`, Id x) = v
   when x == y;
