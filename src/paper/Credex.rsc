@@ -8,7 +8,7 @@ import Type;
 
 alias R = set[Tree];
 alias CR = rel[Tree context, Tree redex];
-alias T = rel[Tree from, Tree to];
+alias T = lrel[Tree from, Tree to];
 
 alias Env = rel[loc scope, loc decl, Tree name];
 alias Lookup = rel[loc scope, loc decl](Tree, loc, list[Env]);
@@ -25,13 +25,13 @@ R reduce(type[&C<:Tree] ct, type[&T<:Tree] tt, CR(str,&C,Tree) red, &T t, set[st
      str r <- rules,  <ctx2, rt> <- red(r, ctx1, rx) };
 
 T trace(R(&T<:Tree) step, &T t0) {
-  T trace = {};
+  T trace = [];
   set[Tree] todo = {t0};
   solve (trace) {
     set[Tree] newTodo = {};
     for (&T t1 <- todo) {
       R next = step(t1);
-      trace += { <t1, t2> | t2 <- next };
+      trace += [ <t1, t2> | t2 <- next ];
       newTodo += next;
     }
     todo = newTodo;
@@ -179,7 +179,7 @@ map[loc,Tree] nameFix(&T<:Tree t, Resolver[&T] resolve) {
 tuple[Tree,set[Tree]] fresh(Tree x, set[Tree] names) {
   int i = 0;
   while (x in names) {
-    x = appl(x.prod, x.args + [char(c) | int c <- chars("<i>") ]);
+    x = appl(x.prod, x.args + [char(c) | int c <- chars("<i>") ])[@\loc=x@\loc];
     i += 1;
   }
   return <x, names + {x}>;

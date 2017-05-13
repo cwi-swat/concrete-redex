@@ -10,14 +10,15 @@ syntax Expr // new expression constructs
 
 keyword Reserved = "let";
 
-syntax Conf = Store "⊢" Expr; // configurations
+// configurations
+syntax Conf = Store "⊢" Expr; 
 
 // configuration contexts
 syntax C = Store store "⊢" E ctx; 
 
+// stores
 syntax Store = {VarVal ","}*;
 syntax VarVal = Id "↦" Value;
-
 
 syntax E // new expression evaluation contexts
   = "(" "let" "(" "(" Id E ")" ")" Expr ")"
@@ -42,7 +43,10 @@ default CR red(str n, C c, Expr t)  // congruence
   = { <c, r> | Expr r <- ered(n, t) };
   
 R reduceLambdaS(Conf c) = reduce(#C, #Conf, red, c, {"+", "βv", "var", "set", "let"});
-  
+
+/*
+ * Lookup/update functions on store.
+ */   
   
 Value lookup((Store)`<{VarVal ","}* _>, <Id y> ↦ <Value v>, <{VarVal ","}* _>`, Id x) = v
   when x == y;
@@ -54,9 +58,7 @@ Store update((Store)`<{VarVal ","}* v1>, <Id y> ↦ <Value _>, <{VarVal ","}* v2
 default Store update((Store)`<{VarVal ","}* vs>`, Id x, Value v)
   = (Store)`<{VarVal ","}* vs>, <Id x> ↦ <Value v>`;
 
-
-Store emptyStore() = (Store)``;
-
-Conf letExample() = (Conf)` ⊢ (let ((x 3)) (+ x 1))`;
+Conf letExample() = (Conf)` ⊢ (let ((x 3)) (set! x (+ x 1)))`;
+Conf nestedLet() = (Conf)` ⊢ (let ((x 3)) (set! x (let ((x 10)) (+ x 1))))`;
 
   
