@@ -18,12 +18,12 @@ R ered("βv", (Expr)`((λ (<Id x>) <Expr b>) <Value e>)`)
 
 default R ered(str _, Expr _) = {};
 
-//NB: need tree here, because apply-red needs to accept multiple
-// kinds of redexes.
+// NB: need Tree for t here, because Credex::reduce needs
+// to accept multiple kinds of redexes.
 CR red(str n, E c, Tree t)  // congruence
   = { <c, r> | Expr r <- ered(n, t) };
 
-R applyRed(Expr e) = applyRed(#E, #Expr, red, e, {"+", "βv"});
+R reduceLambdaV(Expr e) = reduce(#E, #Expr, red, e, {"+", "βv"});
 
 private int toInt(Num x) = toInt("<x>");  
   
@@ -40,9 +40,12 @@ Refs resolve(Expr exp, list[Env] envs, Lookup lu) {
   return r;
 }
 
+// replace x with e in t
 Expr subst(Expr x, Expr e, Expr t) = subst(#Expr, x, e, t, resolve);
 
 Expr omega() = (Expr)`((λ (x) (x x)) (λ (x) (x x)))`;
 Expr onePlusOne() = (Expr)`(+ 1 1)`;
 Expr onePlusTwo() = (Expr)`((λ (x) (+ x 2)) 1)`;
 
+Expr avoidCapture() 
+ = (Expr)`((λ (x) ((λ (y) (+ y x)) x)) (λ (z) y))`;

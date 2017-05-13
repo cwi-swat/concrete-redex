@@ -16,9 +16,28 @@ alias Refs = rel[loc use, Tree name, loc scope, loc decl];
 alias Resolver[&T] = Refs(&T, list[Env], Lookup); 
 
 
-R applyRed(type[&C<:Tree] ct, type[&T<:Tree] tt, CR(str,&C,Tree) red, &T t, set[str] rules)
+/*
+ * Applying reduction relations
+ */
+
+R reduce(type[&C<:Tree] ct, type[&T<:Tree] tt, CR(str,&C,Tree) red, &T t, set[str] rules)
   = { typeCast(#Tree, plug(tt, ctx2, rt)) |  <ctx1, rx> <- split(ct, t), //bprintln(ctx1), bprintln(rx), 
      str r <- rules,  <ctx2, rt> <- red(r, ctx1, rx) };
+
+T trace(R(&T<:Tree) step, &T t0) {
+  T trace = {};
+  set[Tree] todo = {t0};
+  solve (trace) {
+    set[Tree] newTodo = {};
+    for (&T t1 <- todo) {
+      R next = step(t1);
+      trace += { <t1, t2> | t2 <- next };
+      newTodo += next;
+    }
+    todo = newTodo;
+  }
+  return trace;
+}
 
 
 /*
@@ -113,12 +132,11 @@ private int getMark(loc l) = l.fragment != "" ? toInt(l.fragment) : -1;
 
 private Tree mark(Tree t, int round) {
   return visit (t) {
-    case Tree x => x[@\loc = x@\loc[fragment = "<round>"]]
-      when x@\loc? 
+    case Tree x => x[@\loc = x@\loc[fragment = "<round>"]] when x@\loc? 
   }
 }
 
-// a binding occurence of x scopes over t
+// t is in scope of a binding occurence of x
 bool boundIn(Tree x, Tree t, Refs refs) 
   = t@\loc? && <loc def, Tree y, loc scope, def> <- refs 
       && scope == t@\loc && "<x>" == "<y>";
@@ -137,20 +155,17 @@ map[loc,Tree] nameFix(&T<:Tree t, Resolver[&T] resolve) {
   captures = ();
   fv = {};
   
-  rel[loc, loc] lookup(Tree x, loc u, list[Env] envs) {
+  rel[loc, loc] lookup_(Tree x, loc u, list[Env] envs) {
     for (Env env <- envs) {
-      decls = {<s, d> | <s, d, x> <- env, !captured(u, d)};
-      if (decls != {}) return decls;
-      // fix this: it's not nice to reiterate.
-      for (<s, d, x> <- env, captured(u, d)) { 
-        captures[d] = x; // x is captured by d
-      }
+      decls = { <s, d> | <s, d, x> <- env, !captured(u, d) };
+      captures += ( d: x | <s, d, x> <- env, captured(u, d) );
+      if (decls != {}) return decls; // else, go to next env
     }
-    fv += {x};
-    return {}; // x is free
+    fv += {x}; // x is free
+    return {}; 
   }
 
-  refs = resolve(t, [], lookup);  
+  refs = resolve(t, [], lookup_);  
   allNames = refs.name + fv; 
 
   map[loc, Tree] ren = ();  
@@ -161,7 +176,7 @@ map[loc,Tree] nameFix(&T<:Tree t, Resolver[&T] resolve) {
   return ren;
 }
 
-private tuple[Tree,set[Tree]] fresh(Tree x, set[Tree] names) {
+tuple[Tree,set[Tree]] fresh(Tree x, set[Tree] names) {
   int i = 0;
   while (x in names) {
     x = appl(x.prod, x.args + [char(c) | int c <- chars("<i>") ]);
@@ -170,16 +185,3 @@ private tuple[Tree,set[Tree]] fresh(Tree x, set[Tree] names) {
   return <x, names + {x}>;
 }
 
-T trace(CR(str,Tree,Tree) red, Tree t0, set[str] rules) {
-  T trace = {};
-  R todo = {t0};
-  return solve (trace) {
-    newTodo = {};
-    for (t1 <- todo) {
-      R next = applyRed(red, t1, rules);
-      trace += { <t1, t2> | t2 <- next };
-      newTodo += next;
-    }
-    todo = newTodo;
-  }
-}
