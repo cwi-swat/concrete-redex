@@ -6,19 +6,14 @@ import List;
 import IO;
 import Type;
 
-alias R = set[Tree];
-alias CR = rel[Tree context, Tree redex];
-alias T = lrel[Tree from, Tree to];
-
-alias Env = rel[loc scope, loc decl, Tree name];
-alias Lookup = rel[loc scope, loc decl](Tree, loc, list[Env]);
-alias Refs = rel[loc use, Tree name, loc scope, loc decl];
-alias Resolver[&T] = Refs(&T, list[Env], Lookup); 
-
 
 /*
  * Applying reduction relations
  */
+
+alias R = set[Tree]; // reducts
+alias CR = rel[Tree context, Tree redex]; // context reduce pairs
+alias T = lrel[Tree from, Tree to]; // traces
 
 R reduce(type[&C<:Tree] ct, type[&T<:Tree] tt, CR(str,&C,Tree) red, &T t, set[str] rules)
   = { typeCast(#Tree, plug(tt, ctx2, rt)) |  <ctx1, rx> <- split(ct, t), //bprintln(ctx1), bprintln(rx), 
@@ -93,8 +88,14 @@ private void flattenAmbs(Tree t, void(Tree,Tree) k) {
 
 
 /*
- * Generic, capture-avoid substitution
+ * Generic, capture-avoiding substitution
  */
+
+alias Env = rel[loc scope, loc decl, Tree name];
+alias Lookup = rel[loc scope, loc decl](Tree, loc, list[Env]);
+alias Refs = rel[loc use, Tree name, loc scope, loc decl];
+alias Resolver[&T] = Refs(&T, list[Env], Lookup); 
+
  
 private int round = -1;
 
@@ -107,6 +108,7 @@ private int round = -1;
 Tree subst(Tree x, Tree r, Tree t, Refs refs) {
   if (boundIn(x, t, refs)) return t;
 
+  // NB: == is modulo annos
   if (t == x) return mark(r, round);
 
   if (appl(Production p, list[Tree] args) := t) {
@@ -170,18 +172,19 @@ map[loc,Tree] nameFix(&T<:Tree t, Resolver[&T] resolve) {
 
   map[loc, Tree] ren = ();  
   for (loc d <- captures) {
-    <new, allNames> = fresh(captures[d], allNames);
-    ren += ( occ: new | <loc occ, _, _, d> <- refs ); 
+    new = fresh(captures[d], allNames);
+    ren += ( occ: new | <loc occ, _, _, d> <- refs );
+    allNames += {new};
   }
   return ren;
 }
 
-tuple[Tree,set[Tree]] fresh(Tree x, set[Tree] names) {
+Tree fresh(Tree x, set[Tree] names) {
   int i = 0;
   while (x in names) {
     x = appl(x.prod, x.args + [char(c) | int c <- chars("<i>") ])[@\loc=x@\loc];
     i += 1;
   }
-  return <x, names + {x}>;
+  return x;
 }
 
