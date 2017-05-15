@@ -3,9 +3,11 @@ module paper::LambdaResolve
 import paper::Lambda;
 import paper::Credex; // for subst
 import ParseTree;
+import IO;
 
 Refs resolve((Expr)`(<Expr+ es>)`, list[Env] envs, Lookup lu)
-  = ( {} | it + resolve(e, envs, lu) | Expr e <- es );
+  = ( {} | it + resolve(e, envs, lu) | Expr e <- es )
+  when bprintln(es);
 
 Refs resolve((Expr)`<Id x>`, list[Env] envs, Lookup lu)
   = {<x@\loc,x,s,d> | <s,d> <- lu(x, x@\loc, envs)};

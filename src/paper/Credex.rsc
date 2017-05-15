@@ -176,7 +176,9 @@ bool boundIn(Tree x, Tree t, Refs refs)
 // rename all variable occurences according to ren
 Tree rename(Tree t, map[loc,Tree] ren) {
  return visit (t) {
-    case Tree x => ren[x@\loc] when x@\loc?, x@\loc in ren
+    case Tree x => ren[x@\loc] 
+      when x@\loc?, x@\loc in ren, 
+        ren[x@\loc].prod == x.prod // needed because injections
   };
 }
  
