@@ -14,16 +14,12 @@ syntax Expr
   = Id \ "if0"
   | Value
   | apply: "(" Expr+ ")"
-  | if0: "(" "if0" Expr Expr Expr ")"
-  ; 
+  | if0: "(" "if0" Expr Expr Expr ")"; 
 
   
 syntax Value
   = "(" "λ" "(" Id* ")" Expr ")"
   | Num
-  | "+"
-  ;
+  | "+";
 
-
-lexical Num
-  = [0-9]+ !>> [0-9]; 
+lexical Num = [0-9]+ !>> [0-9]; 

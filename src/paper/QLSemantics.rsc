@@ -21,9 +21,15 @@ Accidental: normalize first?
 how to represent visibility output?
 flat list of dones? 
 
+TODO: randomized inputs: analyze "done" form, as to what is enabled
+then use gensen to synthesize random values. 
+
 */
 
-syntax Store = {IdValue ","}*;
+syntax Store 
+  = {IdValue ","}*
+  ;
+  
 syntax Input = IdValue;
 
 syntax IdValue = Id name "↦" Value val;
@@ -32,15 +38,21 @@ syntax IdValue = Id name "↦" Value val;
 syntax Stm = done: Done;
 
 syntax Done 
-  = "done" IdValue "(" Expr ")"
-  | "done" IdValue 
+  = "computed" IdValue 
+  | "widget" IdValue 
   | "done"; // for empty lists of statements.
 
 syntax Conf = Store ";" IdValue "⊢" Form ;
 
-syntax C = Store store ";" IdValue input "⊢" F; 
+syntax C 
+  = Store store ";" IdValue input "⊢" F 
+  ; 
 
 syntax F = "form" Id S;
+
+syntax Stm
+  = Label Id ":" Type "=" Expr "[" Expr "]" 
+  ;
 
 syntax S
   = "if" "(" E ")" Stm !>> "else"
@@ -49,9 +61,14 @@ syntax S
   | "if" "(" Value ")" S "else" Stm
   | "if" "(" Value ")" Done "else" S
   | "{" Stm* S Stm* "}" // variation point: pick any statement
-  | Label Id ":" Type "=" E
+  //"{" Done* S Stm!done* "}"
+  | Label Id ":" Type "=" Expr "[" E "]"
   | hole: Stm!done 
   ;
+  
+// maintain two stores and do dirty-bit propagation
+// input is in the second store. Final transition rewrites
+// two store to new one.
 
 syntax E
   = hole: Expr!val | bracket "(" E ")"
@@ -71,7 +88,7 @@ syntax E
   
 R reduceQL(Conf c) = reduce(#C, #Conf, red, c,  {"add", "sub", "mul", "div", "lookup",
   "leq", "geq", "gt", "lt", "eq", "neq", "and", "or", "not", 
-  "ifThen", "ifThenElse", "question", "computed"});
+  "ifThen", "ifThenElse", "question", "computed", "computedStart", "flatten"});
   
   
 default CR red(str n, C c, Tree t)  // congruence
@@ -79,12 +96,12 @@ default CR red(str n, C c, Tree t)  // congruence
   + { <c, r> | Stm r <- red_s(n, t) };
 
 Conf example()
- = (Conf)`age ↦ 19, num ↦ 10 ; age ↦ 20 ⊢ 
+ = (Conf)`license ↦ true, age ↦ 19, num ↦ 10 ; age ↦ 20 ⊢ 
          'form Bla {
          '  "What is your name?" name: str
          '  "What is your age?" age: int
          '  if (age \> 18) {
-         '    "Do you have license?" license: bool
+         '    "Do you have a license?" license: bool
          '    "Computed age + num" comp: int = age + num
          '  }
          '  "What is your number?" num: int
@@ -104,27 +121,34 @@ R red_s("ifThen", (Stm)`if (<Bool v>) <Stm s>`)
 R red_s("ifThenElse", (Stm)`if (<Bool v>) <Stm s1> else <Stm s2>`)
   = {(Bool)`true` := v ? s1 : s2}; 
 
-R red_s("computed", (Stm)`<Label l> <Id x>: <Type t> = <Value v>`)
-  = {(Stm)`done <Id x> ↦ <Value v>`}; 
+R red_s("computed", (Stm)`<Label l> <Id x>: <Type t> = <Expr e>`)
+  = {(Stm)`<Label l> <Id x>: <Type t> = <Expr e> [<Expr e>]`};
+
+//R red_s("flatten", (Stm)`{<Stm* s1> {<Stm* s2>} <Stm* s3>}`)
+//  = {(Stm)`{<Stm* s1> <Stm* s2> <Stm* s3>}`}; 
 
 CR red("question", C c, (Stm)`<Label l> <Id x>: <Type t>`)
-  = {<c, iv:(IdValue)`<Id y> ↦ <Value v>` := c.input && y == x 
-          ? (Stm)`done <IdValue iv>` : (Stm)`done`>};
+  = {<c, (Stm)`<Label l> <Id x>: <Type t> = <Id x> [<Id x>]`>};
 
 
 /*
  * Variable lookup
  */
 
+// when in second store: dirty = false
 CR red("lookup", C c, (Expr)`<Id x>`)
   = {<c, (Expr)`<Value v>`>}
   when isDefined(c.store, x),  Value v := lookup(c.store, x); 
 
 /*
  * Basic expression reduction.
+ *  Expr "[" Expr "]"
  */
 
 default R red_e(str _, Tree _) = {};
+
+//R red_e("value", (Expr)`<Value v>`)
+//  = {(Expr)`<Value v>`}; 
 
 R red_e("add", (Expr)`<Int i1> + <Int i2>`) 
   = {intExpr(toInt(i1) + toInt(i2))}; 

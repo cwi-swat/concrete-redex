@@ -18,12 +18,12 @@ syntax Value
   ; 
 
 syntax Expr
-  = Value
+  = val: Value
   | Id
   | Loc
   | "err" Value  
-  | Op1 "(" Expr ")"
-  | Op2 "(" Expr "," Expr ")"
+  | op1: Op1 "(" Expr ")"
+  | op2: Op2 "(" Expr "," Expr ")"
   | Expr "[" "\<" O "\>" "]"
   | Expr "[" "\<" O "\>" "=" Expr  "]"
   | Expr "[" Expr "\<" A "\>" "]"
@@ -34,10 +34,10 @@ syntax Expr
   | Expr "(" {Expr ","}* ")"
   > right Expr ":=" Expr
   | "label" ":" Id Expr
-  | "break" Id Expr
+  | \break: "break" Id Expr
   | "throw" Expr
-  | "try" Expr "catch" Id Expr 
-  | "try" Expr "finally" Expr 
+  | tryCatch: "try" Expr "catch" Id Expr 
+  | tryFinally: "try" Expr "finally" Expr 
   | "let" "(" Id "=" Expr ")" Expr
   > left Expr ";" Expr
   | "if" "(" Expr ")" "{" Expr "}" "else" "{" Expr "}"

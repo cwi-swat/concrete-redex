@@ -27,7 +27,7 @@ syntax EPE
   ;
   
 syntax EPrime
-  = hole: Expr
+  = hole: Expr!val
   | Op1 "(" EPrime ")"
   | Op2 "(" EPrime "," Expr ")"
   | Op2 "(" Value "," EPrim ")"
@@ -55,16 +55,15 @@ syntax EPrime
   | Value "(" EPrime "," {Expr ","}+ ")"
   | Value "(" {Value ","}+ "," EPrime ")"
   | Value "(" {Value ","}+ "," EPrime "," {Expr ","}+ ")"
-  > right (
-    EPrime ":=" Expr
-    | Value ":=" EPrime
-  )  
+
+  | EPrime ":=" Expr
+  | Value ":=" EPrime
+
   | "throw" EPrime
   | "let" "(" Id "=" EPrime ")" Expr
-  > left (
-    EPrime ";" Expr
-    | Value ";" EPrime
-  )
+
+  | EPrime ";" Expr
+  | Value ";" EPrime
   | "if" "(" EPrime ")" "{" Expr "}" "else" "{" Expr "}"
   | "eval" "(" EPrime "," Expr ")"
   | "eval" "(" Value "," EPrime ")"
@@ -80,9 +79,19 @@ syntax E
   | "try" E "finally" Expr 
   | "label" ":" Id E
   | "break" Id E
+  // added to make parseable
+  | "try" F "finally" Expr
+  | "try" G "finally" Expr
+  | "label" ":" Id G
   ;
   
 syntax F
   = EPrime
-  | "label" ":" Id F;
+  | "label" ":" Id F
+  | "break" Id F
+  ;
   
+syntax G
+  = EPrime
+  | "try" G "catch" Expr
+  ;

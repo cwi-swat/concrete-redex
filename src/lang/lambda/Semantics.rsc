@@ -13,12 +13,11 @@ syntax E
   | "(" "if0" E Expr Expr ")"
   | hole: Expr
   ;
+
+int toInt(Num n) = toInt("<n>");
         
 CR rule("+", E e, (Expr)`(+ <Num n1> <Num n2>)`)
-  = <e, [Expr]"<i1 + i2>">
-  when 
-    int i1 := toInt("<n1>"),
-    int i2 := toInt("<n2>");
+  = <e, [Expr]"<toInt(n1) + toInt(n2)>">;
 
 CR rule("if0f", E e, (Expr)`(if0 <Value v> <Expr e1> <Expr e2>)`)
   = <e, e2>
@@ -28,13 +27,19 @@ CR rule("if0t", E e, (Expr)`(if0 0 <Expr e1> <Expr e2>)`)
   = <e, e1>;
 
 CR rule("βv", E e, (Expr)`((λ (<Id* xs>) <Expr body>) <Expr* args>)`)
-  = <e, newBody>
+  = <e, subst(xs, args, body)>
   when 
-    allValue(args),
+    allValue(args), length(xs) == length(args);
+
+int length(Id* xs) = size([ x | Id x <- xs ]);
+int length(Expr* es) = size([ e | Expr e <- es ]);
+
+Expr subst(Id* xs, Expr* args, Expr t)
+  =  ( t | mySubst(it, (Expr)`<Id x>`, el[i]) | int i <- [0..size(xl)], Id x := xl[i] )
+  when
     list[Id] xl := [ x | Id x <- xs ],
-    list[Expr] el := [ a | Expr a <- args ],
-    size(xl) == size(el),
-    Expr newBody := ( body | mySubst(it, (Expr)`<Id x>`, el[i]) | int i <- [0..size(xl)], Id x := xl[i] );
+    list[Expr] el := [ a | Expr a <- args ];
+    
   
 bool allValue(Expr* es) = ( true | it && (Expr)`<Value _>` := e | Expr e <- es );
 

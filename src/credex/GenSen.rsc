@@ -15,6 +15,9 @@ Tree genSen(type[&T<:Tree] typ, int depth)
 Tree genSen(Symbol s, map[Symbol, Production] defs, int depth) 
   = genSen_(s, defs, depth);
 
+Tree genSen_(label(_, Symbol s), map[Symbol, Production] defs, int depth)
+  = genSen(s, defs, depth);
+
 Tree genSen_(s:sort(_), map[Symbol, Production] defs, int depth)
   = genSenProd(defs[s], defs, depth);
 

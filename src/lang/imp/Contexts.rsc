@@ -28,3 +28,5 @@ data S
 data C
   = conf(map[Id, Int] state, S s)
   ;
+  
+void f(C c:/E e:/(Expr)`1 + 2`) = 3;

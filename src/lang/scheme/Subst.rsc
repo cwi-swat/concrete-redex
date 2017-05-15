@@ -3,8 +3,6 @@ module lang::scheme::Subst
 import lang::scheme::Scheme;
 import credex::Substitution;
 import ParseTree;
-import util::Maybe;
-import IO;
 
 Expr mySubst(Expr e, Expr x, Expr y)
   = substitute(#Expr, #Id, #Expr, e, x, y, resolve);

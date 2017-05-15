@@ -23,6 +23,7 @@ when hit tree, do the loc trick.
 
 */
 
+
 @doc{Plug the reduct back into original term where the context's hole is located.}
 &T plug(type[&T<:Tree] typ, node ctx, &T term, Tree reduct) {
   // traverse ctx and term in simultaneously, until hole(), then put in reduct.
@@ -52,7 +53,7 @@ when hit tree, do the loc trick.
   
   
   */
-  holeLocs = [ l | /"hole"(loc l) := ctx ];
+  holeLocs = [ t@\loc | /"hole"(Tree t) := ctx ];
   assert size(holeLocs) == 1: "multiple holes in context";
 
   return visit (term) {
@@ -65,14 +66,16 @@ alias TypeMap = map[Symbol, type[value]];
 @doc{Match a tree according to the data type ctx and produce all matches.
 The extra reified types are needed to construct correct context values
 when there is more than one context ADT (e.g. many-sorted contexts).}
-rel[&C, Tree] split(type[&C<:node] ctx, Tree t, type[node] ctxes...) {
+set[&C] split(type[&C<:node] ctx, Tree t, type[node] ctxes...) {
   typeMap = ( typ.symbol: typ | typ <- ctxes + [ctx] );
   
   cs = {};
+  // todo: remove redex passing; it's not needed anymore since we do
+  // deep match in the reduction rules.
   toCtx(typeMap, ctx.definitions[ctx.symbol], t, void(node n, list[Tree] redex) {
     //println("Succes: <ctx2str(n)>");
     assert size(redex) == 1: "multiple redexes";
-    cs += {<typeCast(ctx, n), redex[0]>};
+    cs += typeCast(ctx, n);
   });
   
   return cs;
@@ -141,7 +144,7 @@ default void toCtx(TypeMap tm, Symbol s, list[Tree] args, void(list[value], list
     k([uninject(s, args[0])], []);
   }
   //else {
-  //  println("****** failed to match \'<args[0]>\' (<args[0].prod>) to <s>");
+  //  //println("****** failed to match \'<args[0]>\' (<args[0].prod>) to <s>");
   //}
 }
 
@@ -151,7 +154,14 @@ void toCtx(TypeMap tm, cons(label(str name, Symbol ctxSym), list[Symbol] syms, _
   // then, do not do astArgs etc.
   if (name == "hole") {
     //println("Found hole: <ctxSym>");
-    k(make(tm[ctxSym], "hole", [t@\loc? ? t@\loc : |tmp:///dummy|]), [t]);
+    //println("T = <t> (<t.prod.def>)");
+    k(make(tm[ctxSym], "hole", [t]), [t]);
+  }
+  else if (name == "inject") {
+    //println("Injecting another context");
+    toCtx(tm, [syms[0]], [t], void(list[value] args, list[Tree] redex) {
+      k(make(tm[ctxSym], name, args), redex);
+    });
   }
   else if (label(name, _) := t.prod.def) {
     //println("trying prod <t.prod>");
@@ -163,6 +173,7 @@ void toCtx(TypeMap tm, cons(label(str name, Symbol ctxSym), list[Symbol] syms, _
 
 void toCtx(TypeMap tm, choice(_, set[Production] alts), Tree t, void(node, list[Tree]) k) {
   for (Production a <- alts) {
+    //println("Trying alt: <a> against <t>");
     toCtx(tm, a, t, k);
   } 
 }

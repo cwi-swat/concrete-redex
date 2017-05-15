@@ -5,6 +5,7 @@ import String;
 import List;
 import IO;
 import Type;
+import util::Maybe;
 
 
 /*
@@ -13,7 +14,7 @@ import Type;
 
 alias R = set[Tree]; // reducts
 alias CR = rel[Tree context, Tree redex]; // context reduce pairs
-alias T = lrel[Tree from, Tree to]; // traces
+alias T = rel[Tree from, Tree to]; // traces
 
 R reduce(type[&C<:Tree] ct, type[&T<:Tree] tt, CR(str,&C,Tree) red, &T t, set[str] rules)
   = { typeCast(#Tree, plug(tt, ctx2, rt)) |  <ctx1, rx> <- split(ct, t), //bprintln(ctx1), bprintln(rx), 
@@ -22,6 +23,31 @@ R reduce(type[&C<:Tree] ct, type[&T<:Tree] tt, CR(str,&C,Tree) red, &T t, set[st
       <ctx2, rt> <- red(r, ctx1, rx)
       //bprintln("success: <rt>") 
     };
+
+alias Iter[&T<:Tree] = tuple[bool() hasNext, &T() next];
+
+Iter[&T<:Tree] stepper(R(&T<:Tree) step, &T t0) {
+  &T cur = t0;
+  
+  bool hasNext_() {
+    if (&T t <- step(cur)) {
+      cur = t;
+      return true;
+    }
+    return false;
+  }
+  
+  &T next_() = cur;
+
+  return <hasNext_, next_>;
+}
+
+list[&T] steps(R(&T<:Tree) step, &T t0) {
+  Iter[&T] s = stepper(step, t0);
+  list[&T] l = [];
+  while (s.hasNext()) l += [s.next()];
+  return l;
+}
 
 T trace(R(&T<:Tree) step, &T t0) {
   T trace = [];

@@ -39,8 +39,8 @@ CR red("let", C c,
     Id y := fresh(x, { var | /Id var := c.store }),
     Store s := update(c.store, y, v);
 
-default CR red(str n, C c, Expr t)  // congruence
-  = { <c, r> | Expr r <- ered(n, t) };
+default CR red(str n, C c, Expr t)  // congruence on C
+  = { <c, r> | Expr r <- redE(n, t) };
   
 R reduceLambdaS(Conf c) = reduce(#C, #Conf, red, c, {"+", "βv", "var", "set", "let"});
 
