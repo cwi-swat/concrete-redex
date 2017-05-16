@@ -1,9 +1,10 @@
 module paper::lambda::state::Semantics
 
-extend paper::lambda::base::Semantics;
+import paper::lambda::base::Semantics;
 import paper::lambda::state::Syntax;
 import paper::lambda::state::Resolve;
 
+import paper::MatchRedex; 
 import paper::Substitution; // for fresh
 
 // configurations
@@ -57,6 +58,9 @@ Store update((Store)`<{IdValue ","}* v1>, <Id y> ↦ <Value _>, <{IdValue ","}* 
 
 default Store update((Store)`<{IdValue ","}* vs>`, Id x, Value v)
   = (Store)`<{IdValue ","}* vs>, <Id x> ↦ <Value v>`;
+
+Expr subst(Expr x, Expr e, Expr t) = subst(#Expr, x, e, t, resolve);
+
 
 Conf xPlusX() = (Conf)`x ↦ 3 ⊢ (+ x x)`;
 

@@ -1,6 +1,6 @@
 module paper::lambda::base::Resolve
 
-import paper::lambda::Syntax;
+import paper::lambda::base::Syntax;
 import paper::Substitution;
 import ParseTree;
 

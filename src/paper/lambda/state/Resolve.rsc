@@ -1,7 +1,12 @@
 module paper::lambda::state::Resolve
 
+import paper::Substitution;
+
 import paper::lambda::state::Syntax;
 extend paper::lambda::base::Resolve;
+
+import ParseTree;
+import IO;
 
 /*
  * Extend resolve
@@ -15,3 +20,7 @@ Refs resolve((Expr)`(let ((<Id x> <Expr e>)) <Expr b>)`, list[Env] envs, Lookup 
   = {<x@\loc, x, b@\loc, x@\loc>} // decls self-refer
   + resolve(e, envs, lu)
   + resolve(b, [{<b@\loc, x@\loc, x>}] + envs, lu);
+
+// TODO: why do I need to repeat this?
+// replace x with e in t
+Expr subst(Expr x, Expr e, Expr t) = subst(#Expr, x, e, t, resolve);

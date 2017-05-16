@@ -43,12 +43,12 @@ Tree subst(Tree x, Tree r, Tree t, Refs refs) {
 }
 
 private rel[loc, loc] defaultLookup(Tree x, loc u, list[Env] envs) {
-    for (Env env <- envs) {
-      decls = {<s, d> | <s, d, x> <- env };
-      if (decls != {}) return decls;
-    }
-    return {}; // not found
+  for (Env env <- envs) {
+    decls = {<s, d> | <s, d, x> <- env };
+    if (decls != {}) return decls;
   }
+  return {}; // not found
+}
 
 private int getMark(loc l) = l.fragment != "" ? toInt(l.fragment) : -1;
 

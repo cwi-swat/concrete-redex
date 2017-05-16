@@ -25,7 +25,7 @@ Iter[&T<:Tree] stepper(R(&T<:Tree) step, &T t0) {
 
 list[&T] steps(R(&T<:Tree) step, &T t0) {
   Iter[&T] s = stepper(step, t0);
-  list[&T] l = [];
+  list[&T] l = [t0];
   while (s.hasNext()) l += [s.next()];
   return l;
 }
