@@ -29,10 +29,10 @@ R reduceLambdaVA(Expr e) = reduce(#E, #Expr, red, e, {"+", "βv"});
 
 // NB: trace/steps/etc. are still reusable with abstract context matching.
 R reduce(type[&C<:node] ct, type[&T<:Tree] tt, CR(str,&C) red, &T t, set[str] rules, type[node] cts...)
-  = { typeCast(#Tree, plug(tt, ctx2, t, rt)) |  ctx1 <- split(ct, t, cts), 
-    //bprintln("CTX: <ctx2str(ctx1)>"),
+  = { plug(ctx2, rt, t) |  ctx1 <- split(ct, t, cts), 
+   // bprintln("Reduce CTX: <ctx2str(ctx1)>"),
         str r <- rules, <ctx2, rt> <- red(r, ctx1)
-      //  bprintln("Reduct: <rt>, ctx2 = <ctx2str(ctx2)>") 
+     //   bprintln("Reduct: <rt>, ctx2 = <ctx2str(ctx2)>") 
       };
 
 private int toInt(Num x) = toInt("<x>");  

@@ -12,7 +12,7 @@ import util::Maybe;
  * Applying reduction relations
  */
 
-alias R = set[Tree]; // reducts
+alias R = set[node]; // reducts
 alias CR = rel[Tree context, Tree redex]; // context reduce pairs
 alias T = rel[Tree from, Tree to]; // traces
 

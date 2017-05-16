@@ -4,10 +4,10 @@ extend lang::std::Layout;
 extend lang::std::Id;
 
 syntax Expr
-  = Id \ Reserved | Value | "(" Expr+ ")";
+  = var: Id \ Reserved | val: Value | apply: "(" Expr+ ")";
 
 syntax Value
-  = "(" "λ" "(" Id ")" Expr ")" | Num | "+";
+  = lambda: "(" "λ" "(" Id ")" Expr ")" | \num: Num | add: "+";
 
 lexical Num = [0-9]+ !>> [0-9];
 

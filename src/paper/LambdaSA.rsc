@@ -27,7 +27,7 @@ data C(loc src = |tmp:///|)
   
 CR red("var", C c:/hole((Expr)`<Id x>`))
   = {<c, (Expr)`<Value v>`>}
-  when isDefined(c.store, x), Value v := lookup(c.store, x);
+  when  isDefined(c.store, x), Value v := lookup(c.store, x);
 
 CR red("set", C c:/hole((Expr)`(set! <Id x> <Value v>)`))
   = {<c[store=s], (Expr)`<Value v>`>}
@@ -39,15 +39,10 @@ CR red("let", C c:/hole((Expr)`(let ((<Id x> <Value v>)) <Expr b>)`))
     Id y := fresh(x, { var | /Id var := c.store }),
     Store s := update(c.store, y, v);
 
-default CR red(str n, C c:/E e)  
-  = { <plugCtx(c, e2), r> | <E e2, Expr r> <- red(n, e),
-    bprintln("C = <ctx2str(c)>"),
-    bprintln("CTX: <ctx2str(e2)>, r = <r>"),
-    bprintln("C[E[_]] = <ctx2str(plugCtx(c, e2))>")
-     };
+default CR red(str n, C c:/E e1)  
+  = { <plugCtx(c, e2), r> | <E e2, Expr r> <- red(n, e1) };
   
 R reduceLambdaSA(Conf c) = reduce(#C, #Conf, red, c, {"+", "βv", "var", "set", "let"}, #E);
-
 
 /*
  * Extend resolve
@@ -80,6 +75,8 @@ Store update((Store)`<{IdValue ","}* v1>, <Id y> ↦ <Value _>, <{IdValue ","}* 
 
 default Store update((Store)`<{IdValue ","}* vs>`, Id x, Value v)
   = (Store)`<{IdValue ","}* vs>, <Id x> ↦ <Value v>`;
+
+Conf xPlusX() = (Conf)`x ↦ 3 ⊢ (+ x x)`;
 
 Conf letExample() = (Conf)` ⊢ (let ((x 3)) (set! x (+ x 1)))`;
 Conf nestedLet() = (Conf)` ⊢ (let ((x 3)) (set! x (let ((x 10)) (+ x 1))))`;
