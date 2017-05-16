@@ -21,7 +21,30 @@ Make simplifying assumption: hole is always in a Tree
 so do simul traversal, updating values in conf from context
 when hit tree, do the loc trick.
 
+
+plug(node ctx, node t)
+ if node is Tree, plug into hole
+ else assume it's a context, plug at proper loc.
+
 */
+
+node plug(node ctx, Tree x) {
+  return visit (ctx) {
+    case h:"hole"(_) => top-down-break visit (h) {
+       case Tree t0 => t
+    }
+  }
+}
+
+node plugCtx(node ctx1, node ctx2) {
+  loc origin(node n) = typeCast(#loc, getKeywordParameters(n)["src"]);
+    
+  return top-down-break visit (ctx1) {
+    case Tree _: ;
+    case node n => ctx2
+      when origin(n) == origin(ctx2)
+  }
+}
 
 
 @doc{Plug the reduct back into original term where the context's hole is located.}
@@ -53,11 +76,12 @@ when hit tree, do the loc trick.
   
   
   */
-  holeLocs = [ t@\loc | /"hole"(Tree t) := ctx ];
-  assert size(holeLocs) == 1: "multiple holes in context";
+  holes = [ t | /"hole"(Tree t) := ctx ];
+  assert size(holes) == 1: "multiple holes in context";
 
   return visit (term) {
-    case Tree t => reduct when t@\loc?, t@\loc == holeLocs[0]
+    case Tree t => reduct 
+      when t@\loc?, t@\loc == holes[0]@\loc, t.prod == holes[0].prod
   }
 }
 
@@ -66,7 +90,7 @@ alias TypeMap = map[Symbol, type[value]];
 @doc{Match a tree according to the data type ctx and produce all matches.
 The extra reified types are needed to construct correct context values
 when there is more than one context ADT (e.g. many-sorted contexts).}
-set[&C] split(type[&C<:node] ctx, Tree t, type[node] ctxes...) {
+set[&C] split(type[&C<:node] ctx, Tree t, list[type[node]] ctxes) {
   typeMap = ( typ.symbol: typ | typ <- ctxes + [ctx] );
   
   cs = {};
@@ -155,18 +179,18 @@ void toCtx(TypeMap tm, cons(label(str name, Symbol ctxSym), list[Symbol] syms, _
   if (name == "hole") {
     //println("Found hole: <ctxSym>");
     //println("T = <t> (<t.prod.def>)");
-    k(make(tm[ctxSym], "hole", [t]), [t]);
+    k(make(tm[ctxSym], "hole", [t], ("src": t@\loc)), [t]);
   }
   else if (name == "inject") {
     //println("Injecting another context");
     toCtx(tm, [syms[0]], [t], void(list[value] args, list[Tree] redex) {
-      k(make(tm[ctxSym], name, args), redex);
+      k(make(tm[ctxSym], name, args, ("src": t@\loc)), redex);
     });
   }
   else if (label(name, _) := t.prod.def) {
     //println("trying prod <t.prod>");
     toCtx(tm, syms, astArgs(t), void(list[value] args, list[Tree] redex) {
-      k(make(tm[ctxSym], name, args), redex);
+      k(make(tm[ctxSym], name, args, ("src": t@\loc)), redex);
     }); 
   }
 }
@@ -181,10 +205,14 @@ void toCtx(TypeMap tm, choice(_, set[Production] alts), Tree t, void(node, list[
 @doc{Convert a context value to string}
 str ctx2str(value ctx, bool printLoc = false) {
   switch (ctx) {
-    case "hole"(loc l): return printLoc ? "[<l>]" : "☐";
+    //case "hole"(Tree t): return printLoc ? "[<l>]" : "☐";
     case Tree t: return "<t>";
     case list[value] l: return "[<intercalate(", ", [ ctx2str(x, printLoc=printLoc) | value x <- l ])>]";
-    case node n: return "<getName(n)>(<intercalate(", ", [ ctx2str(x, printLoc=printLoc) | value x <- getChildren(n) ])>)";
+    case node n: {
+      args = intercalate(", ", [ ctx2str(x, printLoc=printLoc) | value x <- getChildren(n) ]);
+      kws = getKeywordParameters(n);
+      return "<getName(n)>(<args><"src" in kws ? ", src=<kws["src"]>" : "">)";
+    }
     default: return "<ctx>";
   }
 }  

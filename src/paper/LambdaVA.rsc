@@ -6,16 +6,16 @@ import credex::Matching;
 import Type;
 import ParseTree;
 import String;
+import IO;
 
 
 alias CR = rel[node, Tree];
 alias R = set[Tree];
 
-data E // evaluation contexts
+data E(loc src = |tmp:///|) // evaluation contexts
   = apply(list[Value] done, E ctx, list[Expr] rest)
   | hole(Expr redex)
   ;
-  
   
 CR red("+", E e:/hole((Expr)`(+ <Num n1> <Num n2>)`))
   = {<e, [Expr]"<toInt(n1) + toInt(n2)>">};
@@ -28,9 +28,12 @@ default CR red(str _, E _) = {};
 R reduceLambdaVA(Expr e) = reduce(#E, #Expr, red, e, {"+", "βv"});
 
 // NB: trace/steps/etc. are still reusable with abstract context matching.
-R reduce(type[&C<:node] ct, type[&T<:Tree] tt, CR(str,&C) red, &T t, set[str] rules)
-  = { typeCast(#Tree, plug(tt, ctx2, t, rt)) |  ctx1 <- split(ct, t), 
-        str r <- rules, <ctx2, rt> <- red(r, ctx1) };
+R reduce(type[&C<:node] ct, type[&T<:Tree] tt, CR(str,&C) red, &T t, set[str] rules, type[node] cts...)
+  = { typeCast(#Tree, plug(tt, ctx2, t, rt)) |  ctx1 <- split(ct, t, cts), 
+    //bprintln("CTX: <ctx2str(ctx1)>"),
+        str r <- rules, <ctx2, rt> <- red(r, ctx1)
+      //  bprintln("Reduct: <rt>, ctx2 = <ctx2str(ctx2)>") 
+      };
 
 private int toInt(Num x) = toInt("<x>");  
   
