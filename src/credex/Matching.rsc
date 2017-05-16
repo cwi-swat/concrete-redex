@@ -34,7 +34,8 @@ Tree getArg(int i, Tree t) {
 }
 
 
-
+// this can be made much more efficient if we apply
+// a kind of lazy iterator/zipper pattern.
 list[Tree] updateArg(int i, Tree arg, list[Tree] args) {
   println("************** UPDATING <arg> of type <arg.prod>");
   j = 0;
@@ -91,6 +92,8 @@ list[Tree] updateArg(int i, Tree arg, list[Tree] args) {
   return args; 
 }
 
+@doc{Plug the reduct back into original term where the context's hole is located. 
+Meanwhile, create a new concrete syntax tree based on the last argument (the original term).}
 Tree plug(node n, Tree reduct, x:appl(Production p, list[Tree] args)) {
   println("PLUG: <ctx2str(n)>");
   println("REDUCT: <reduct>");
@@ -178,70 +181,6 @@ Tree plug(node n, Tree reduct, x:appl(Production p, list[Tree] args)) {
   return appl(p, newArgs)[@\loc=x@\loc];
   
 }
-//  = plug(getChildren(n), reduct, org);
-  
-//list[value] plug(list[value] kids, Tree reduct, Tree org)
-//  = 
-
-
-
-//node plug(node ctx, Tree reduct, Tree org) {
-//  return visit (ctx) {
-//    case h:"hole"(_) => top-down-break visit (h) {
-//       case Tree t0 => reduct
-//    }
-//  }
-//}
-
-node plugCtx(node ctx1, node ctx2) {
-  loc origin(node n) = typeCast(#loc, getKeywordParameters(n)["src"]);
-    
-  return top-down-break visit (ctx1) {
-    case Tree _: ;
-    case node n => ctx2
-      when origin(n) == origin(ctx2)
-  }
-}
-
-
-@doc{Plug the reduct back into original term where the context's hole is located.}
-&T plug(type[&T<:Tree] typ, node ctx, &T term, Tree reduct) {
-  // traverse ctx and term in simultaneously, until hole(), then put in reduct.
-  // for now it's doing two traversals, for simplicity's sake.
-  // this is wrong! We lose changes in the context, even it contains
-  // a concrete store for instance; hence we need simul traversal.
-  // which is rather complicated because of injections, astArgs and flattening.
-  // Q: do we need to have stores etc. be part of the term?
-  // it could still be an extra param in the reduction relation,
-  // but then you have to declare it everywhere, even if you don't access it.
-  // so we need adts as configurations + ordinary values.
-  /*
-  can we use keyword params? But what about the result type?
-  
-  CR rule("lookup", (AExp)`<Id x>`))
-  = <s, (AExp)`<Int i>`>
-  when 
-    isDefined(x, s), 
-    Int i := lookup(x, s); 
-
-
-  CR rule("add", (AExp)`<Int i1> + <Int i2>`) =  (AExp)`<Int i>` 
-  when
-    int n1 := toInt("<i1>"),
-    int n2 := toInt("<i2>"),
-    Int i := [Int]"<n1 + n2>";
-  
-  
-  */
-  holes = [ t | /"hole"(Tree t) := ctx ];
-  assert size(holes) == 1: "multiple holes in context";
-
-  return visit (term) {
-    case Tree t => reduct 
-      when t@\loc?, t@\loc == holes[0]@\loc, t.prod == holes[0].prod
-  }
-}
-
 alias TypeMap = map[Symbol, type[value]];
 
 @doc{Match a tree according to the data type ctx and produce all matches.

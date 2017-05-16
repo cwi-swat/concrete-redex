@@ -3,7 +3,7 @@ module paper::LambdaS
 extend paper::LambdaV;
 extend paper::Lambda;
 extend paper::LambdaResolve;
-extend paper::Credex;
+extend paper::ParseRedex;
 
 syntax Expr // new expression constructs
   = "(" "let" "(" "(" Id Expr ")" ")" Expr ")"
@@ -24,18 +24,6 @@ syntax IdValue = Id "↦" Value;
 syntax E // new expression evaluation contexts
   = "(" "let" "(" "(" Id E ")" ")" Expr ")"
   | "(" "set!" Id E ")";
-
-//syntax CtxS
-//  = C "[" CtxE "]";
-
-//CR red2("var", C c, (Expr)`<Id x>`)
-//  = {<c, (Expr)`<Value v>`>}
-//  when isDefined(c.store, x), Value v := lookup(c.store, x);
-//
-//CR red2("set", C c, (Expr)`(set! <Id x> <Value v>)`)
-//  = {<c[store=s], (Expr)`<Value v>`>}
-//  when isDefined(c.store, x), Store s := update(c.store, x, v);
-
 
 CR red("var", C c, (Expr)`<Id x>`)
   = {<c, (Expr)`<Value v>`>}

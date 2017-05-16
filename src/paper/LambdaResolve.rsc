@@ -1,9 +1,8 @@
 module paper::LambdaResolve
 
 import paper::Lambda;
-import paper::Credex; // for subst
+import paper::Substitution;
 import ParseTree;
-import IO;
 
 Refs resolve((Expr)`(<Expr+ es>)`, list[Env] envs, Lookup lu)
   = ( {} | it + resolve(e, envs, lu) | Expr e <- es );

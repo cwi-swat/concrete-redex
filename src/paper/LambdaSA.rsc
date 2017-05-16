@@ -3,7 +3,6 @@ module paper::LambdaSA
 extend paper::LambdaVA;
 extend paper::Lambda;
 extend paper::LambdaResolve;
-import IO;
 
 syntax Expr // new expression constructs
   = let: "(" "let" "(" "(" Id Expr ")" ")" Expr ")"
@@ -42,7 +41,7 @@ CR red("let", C c:/hole((Expr)`(let ((<Id x> <Value v>)) <Expr b>)`))
 default CR red(str n, C c:/E e1)  
   = { <plugCtx(c, e2), r> | <E e2, Expr r> <- red(n, e1) };
   
-R reduceLambdaSA(Conf c) = reduce(#C, #Conf, red, c, {"+", "βv", "var", "set", "let"}, #E);
+R reduceLambdaSA(Conf c) = reduce(#C, red, c, {"+", "βv", "var", "set", "let"}, #E);
 
 /*
  * Extend resolve

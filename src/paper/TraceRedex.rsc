@@ -1,11 +1,9 @@
-module paper::Credex
+module paper::TraceRedex
 
 import ParseTree;
-import String;
-import List;
-import IO;
-import Type;
-import util::Maybe;
+
+alias R = set[Tree];
+alias T = rel[Tree from, Tree to]; // traces
 
 alias Iter[&T<:Tree] = tuple[bool() hasNext, &T() next];
 
@@ -46,7 +44,4 @@ T trace(R(&T<:Tree) step, &T t0) {
   }
   return trace;
 }
-
-
-
 

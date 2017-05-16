@@ -4,7 +4,7 @@ import paper::Lambda;
 import paper::LambdaResolve;
 
 // extend, because reified grammar bug...
-extend paper::Credex;
+extend paper::ParseRedex;
 import String;
 import IO;
 
