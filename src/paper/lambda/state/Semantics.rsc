@@ -1,8 +1,9 @@
-module paper::LambdaSA
+module paper::lambda::state::Semantics
 
-extend paper::LambdaVA;
-import paper::LambdaS;
-import paper::LambdaResolve;
+extend paper::lambda::base::Semantics;
+import paper::lambda::state::Syntax;
+import paper::lambda::state::Resolve;
+
 import paper::Substitution; // for fresh
 
 // configurations
@@ -61,6 +62,3 @@ Conf xPlusX() = (Conf)`x ↦ 3 ⊢ (+ x x)`;
 
 Conf letExample() = (Conf)` ⊢ (let ((x 3)) (set! x (+ x 1)))`;
 Conf nestedLet() = (Conf)` ⊢ (let ((x 3)) (set! x (let ((x 10)) (+ x 1))))`;
-
-  
-  

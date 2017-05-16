@@ -1,7 +1,7 @@
-module paper::LambdaVA
+module paper::lambda::base::Semantics
 
-import paper::Lambda;
-import paper::LambdaResolve;
+import paper::lambda::base::Syntax;
+import paper::lambda::base::Reslve;
 import paper::MatchRedex;
 import String;
 
@@ -28,4 +28,3 @@ Expr onePlusTwo() = (Expr)`((λ (x) (+ x 2)) 1)`;
 
 Expr avoidCapture() 
  = (Expr)`((λ (x) ((λ (y) (+ y x)) x)) (λ (z) y))`;
-

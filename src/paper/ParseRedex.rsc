@@ -1,11 +1,8 @@
 module paper::ParseRedex
 
 import ParseTree;
-import String;
 import List;
-import IO;
 import Type;
-import util::Maybe;
 
 extend paper::TraceRedex;
 
@@ -14,15 +11,11 @@ extend paper::TraceRedex;
  * Applying reduction relations
  */
 
-alias CR = rel[Tree context, Tree redex]; // context reduce pairs
+alias CR = rel[Tree context, Tree reduct]; // context reduct pairs
 
 R reduce(type[&C<:Tree] ct, type[&T<:Tree] tt, CR(str,&C,Tree) red, &T t, set[str] rules)
-  = { typeCast(#Tree, plug(tt, ctx2, rt)) |  <ctx1, rx> <- split(ct, t), //bprintln(ctx1), bprintln(rx), 
-     str r <- rules,
-     //bprintln("trying [<r>] on <rx>]"),
-      <ctx2, rt> <- red(r, ctx1, rx)
-      //bprintln("success: <rt>") 
-    };
+  = { typeCast(#Tree, plug(tt, ctx2, rt)) |  <ctx1, rx> <- split(ct, t),  
+     str r <- rules, <ctx2, rt> <- red(r, ctx1, rx) };
 
 /*
  * Split and plug
