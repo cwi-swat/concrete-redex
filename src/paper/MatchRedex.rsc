@@ -21,8 +21,7 @@ node plugCtx(node ctx1, node ctx2) {
     
   return top-down-break visit (ctx1) {
     case Tree _: ; // there can be no contexts below a Tree
-    case node n => ctx2
-      when origin(n) == origin(ctx2)
+    case node n => ctx2 when origin(n) == origin(ctx2)
   }
 }
         
@@ -30,24 +29,20 @@ node plugCtx(node ctx1, node ctx2) {
 /*
  * TODO:
  * - remove payload function
+ * - remove redex passing.
  * - support hybrid terms (so not just Tree, but also ADTs with maps etc.)
  * - fix uninject for lexicals... (classcast exception)
  * - not possible to put contexts into terms (e.g. for callcc).
  */
 
-private Tree getArg(int i, Tree t) = astArgs(t)[i]; // for now.
+alias Cursor = tuple[Tree() get, list[Tree](Tree, list[Tree]) update];
 
-
-// this can be made much more efficient if we apply
-// a kind of lazy iterator/zipper pattern.
-private list[Tree] updateArg(int i, Tree arg, list[Tree] args) {
-  //println("************** UPDATING <arg> of type <arg.prod>");
+// this is very tricky code... basically a flattening, non-ast skipping, iterator
+Cursor findArg(int i, list[Tree] args) {
   j = 0;
   jAst = 0;
-  bool updated = false;
+
   for (Tree t <- args) {
-    //println("i = <i>, j = <j>, jAst = <jAst>");
-    //println("Updating <t>?");
     if (!isAst(t.prod.def)) {
       j += 1;
       continue;
@@ -62,16 +57,11 @@ private list[Tree] updateArg(int i, Tree arg, list[Tree] args) {
           continue;
         }
         if (jAst == i) {
-          //println("Found it: args[j].args[k] = \"<args[j].args[k]>\" becomes \"<arg>\"");
-          updated = true;
-          //println("OLDARGS = <intercalate(", ", [ "<na>" | na <- args ])>   ");
-              
-          //println("BEFORE Args[<j>].args[<k>] = <args[j].args[k]>");
-          cur = args[j];
-          args = args[0..j] + [appl(cur.prod, cur.args[0..k] + [arg] + cur.args[k+1..])[@\loc=cur@\loc]] + args[j+1..];
-          //println("AFTER: Args[<j>].args[<k>] = <args[j].args[k]>");
-          //println("OLDARGS = <intercalate(", ", [ "<na>" | na <- args ])>   ");
-          return args;
+          return <Tree() { return args[j].args[k]; }, 
+             list[Tree](Tree arg, Tree args) {
+               cur = args[j];
+               return args[0..j] + [appl(cur.prod, cur.args[0..k] + [arg] + cur.args[k+1..])[@\loc=cur@\loc]] + args[j+1..];
+             }>;
         }
         jAst += 1;
         k += 1;
@@ -80,110 +70,72 @@ private list[Tree] updateArg(int i, Tree arg, list[Tree] args) {
     }
       
     if (jAst == i) {
-      //println("Found it outside of list: args[j] = \"<args[j]>\" becomes \"<arg>\"");
-      updated = true;
-      
-      return args[0..j] + [arg] + args[j+1..];
+      return <Tree() { return args[j]; },
+        list[Tree](Tree arg, list[Tree] args) { return args[0..j] + [arg] + args[j+1..]; }>;
     }
     
     jAst += 1;
     j += 1;
       
   }
-  if (!updated) {
-    throw "error";
-  }
-  return args; 
+  
+  assert false: "argument <i> not found";  
 }
+
 
 @doc{Plug the reduct back into original term where the context's hole is located. 
 Meanwhile, create a new concrete syntax tree based on the last argument (the original term).}
 Tree plug(node n, Tree reduct, x:appl(Production p, list[Tree] args)) {
-  //println("PLUG: <ctx2str(n)>");
-  //println("REDUCT: <reduct>");
 
   if (n is hole) {
-    //println("Returning reduct...");
     return reduct;
   }  
 
+  void update(Cursor cursor, Tree t) {
+    if (match(t.prod.def, cursor.get())) {
+      t2 = reinject(cursor.get().prod, t);
+      if (t2 != cursor.get()) {
+        args = cursor.update(t2, args);
+      } 
+    }
+  }
+
   i = 0;
-  newArgs = args;
-  
-  
+    
   for (value v <- getChildren(n)) {
-    //println("Current kid: <ctx2str(v)>");
-    //println("i  = <i>");
     
     if (i >= size(astArgs(x))) {
       assert v == [];
       assert i == size(getChildren(n)) - 1;
       break; 
     }
-    
-    //println("Current arg: <getArg(i, x)>");
 
-    
     switch (v) {
 
       case list[Tree] l: {
         for (Tree t <- l) {
-          //println("CURRENT list elt: <t>");
-          //println("List elt prod: <t.prod>");
-          //println("Current arg prod: <getArg(i, x).prod>");
-          //if (match(t.prod.def, getArg(i, x))) {
-            //println("Matched!");
-            t2 = reinject(getArg(i, x).prod, t);
-            //println("GetArg = <getArg(i, x)>");
-            //println("TTTTTTT 2 = <t2>");
-            if (t2 != getArg(i, x)) {
-              //println("Updated new args from list !!!");
-              newArgs = updateArg(i, t2, newArgs);
-              //println("NEWARGS = <intercalate(", ", [ "<na>" | na <- newArgs ])>   ");
-              //for (bla <- newArgs) {
-              //  //println("New arg --\> |<bla>|");
-              //}
-            } 
-          //}
-          i += 1;
+          cursor = findArg(i, args);
+          update(cursor, t);
+          i += 1; // what if l == []? don't progress into args...
         }
-        continue; // don't i+=1 twice...
       }
-        // we never have list of contexts, so the hole is not here.
-        // so no recursion needed, but we need to check if anything has changed and
-        // take it from l, not args
         
-      case Tree t:  
-         if (match(t.prod.def, getArg(i, x))) {
-           t2 = reinject(getArg(i, x).prod, t);
-           //println("In context: <t.prod>");
-           //println("In term: <getArg(i, x).prod>");
-           //println("Reinjected: <t2.prod>");
-           if (t2 != getArg(i, x)) {
-             //println("Updated new args!!! case tree");
-             newArgs = updateArg(i, t2, newArgs);
-             //println("case tree NEWARGS = <intercalate(", ", [ "<na>" | na <- newArgs ])>   ");
-           } 
-         }
+      case Tree t: {
+        cursor = findArg(i, args);
+        update(cursor, t);
+        i += 1;
+      }  
          
       case node k: { 
-        // here basically we have to find the position in args
-        // where to continue plugging. We can use the src loc for this?
-        newArgs = updateArg(i, plug(k, reduct, getArg(i, x)), newArgs);
-        //println("Updated new args!!!");
-        //println("case node NEWARGS = <intercalate(", ", [ "<na>" | na <- newArgs ])>   ");
+        cursor = findArg(i, args);
+        args = cursor.update(plug(k, reduct, cursor.get()), args);
+        i += 1;
       }
     }
     
-    i += 1;
   }
   
-  //println("ctx: <ctx2str(n)>");
-  //for (Tree z <- newArgs) {
-  //  //println("==================\> <z> (<z.prod>)");
-  //}
-  
-  return appl(p, newArgs)[@\loc=x@\loc];
+  return appl(p, args)[@\loc=x@\loc];
   
 }
 alias TypeMap = map[Symbol, type[value]];
