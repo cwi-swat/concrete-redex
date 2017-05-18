@@ -103,7 +103,9 @@ map[loc,Tree] nameFix(&T<:Tree t, Resolver[&T] resolve) {
 
 Tree fresh(Tree x, set[Tree] names) {
   int i = 0;
-  while (x in names) {
+  // unfortunate, but the new names have different structure from parsed names
+  set[str] ns = { "<y>" | y <- names }; 
+  while ("<x>" in ns) {
     x = appl(x.prod, x.args + [char(c) | int c <- chars("<i>") ])[@\loc=x@\loc];
     i += 1;
   }

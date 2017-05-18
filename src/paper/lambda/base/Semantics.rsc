@@ -1,7 +1,7 @@
 module paper::lambda::base::Semantics
 
 import paper::lambda::base::Syntax;
-import paper::lambda::base::Reslve;
+import paper::lambda::base::Resolve;
 import paper::MatchRedex;
 import String;
 

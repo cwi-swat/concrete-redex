@@ -7,6 +7,8 @@ import paper::lambda::state::Resolve;
 extend paper::ParseRedex; 
 import paper::Substitution; // for fresh
 
+import IO;
+
 // configurations
 syntax Conf = Store "⊢" Expr; 
 
@@ -67,3 +69,7 @@ Conf xPlusX() = (Conf)`x ↦ 3 ⊢ (+ x x)`;
 
 Conf letExample() = (Conf)` ⊢ (let ((x 3)) (set! x (+ x 1)))`;
 Conf nestedLet() = (Conf)` ⊢ (let ((x 3)) (set! x (let ((x 10)) (+ x 1))))`;
+
+Conf bigLet() = (Conf)` ⊢ (let ((x 3)) (set! x (let ((x 10))
+                      '     (+ x (let ((x 3)) (set! x (let ((x 10)) 
+                      '      (+ x (let ((x 3)) (set! x (let ((x 10)) (+ x 1))))))))))))`;
