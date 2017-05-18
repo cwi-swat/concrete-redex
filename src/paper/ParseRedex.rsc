@@ -29,8 +29,14 @@ Tree plugCtx(type[&C<:Tree] ct, Tree ctx1, &C ctx2) {
   return result;
 }
 
-bool inHole(Tree ctx, Tree redex) 
-  = ( false | it || (t is hole && t@\loc == redex@\loc) | /Tree t := ctx );
+bool inHole(Tree t, Tree redex) = true
+  when t is hole && t@\loc == redex@\loc;
+  
+bool inHole(t:appl(Production p, list[Tree] args), Tree redex) 
+  = inHole(arg, redex)
+  when 
+    Tree arg <- args,  arg@\loc?, redex@\loc <= arg@\loc;
+  
 
 rel[Tree,Tree] split(type[&T<:Tree] ctxType, Tree t) {
   ctx = parse(ctxType, "<t>", t@\loc, allowAmbiguity=true);
