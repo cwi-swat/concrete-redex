@@ -35,7 +35,7 @@ node plugCtx(node ctx1, node ctx2) {
  * - not possible to put contexts into terms (e.g. for callcc).
  */
 
-alias Cursor = tuple[Tree() get, list[Tree](Tree, list[Tree]) update];
+alias Cursor = tuple[Tree get, list[Tree](Tree) update];
 
 // this is very tricky code... basically a flattening, non-ast skipping, iterator
 Cursor findArg(int i, list[Tree] args) {
@@ -57,8 +57,8 @@ Cursor findArg(int i, list[Tree] args) {
           continue;
         }
         if (jAst == i) {
-          return <Tree() { return args[j].args[k]; }, 
-             list[Tree](Tree arg, Tree args) {
+          return <args[j].args[k], 
+             list[Tree](Tree arg) {
                cur = args[j];
                return args[0..j] + [appl(cur.prod, cur.args[0..k] + [arg] + cur.args[k+1..])[@\loc=cur@\loc]] + args[j+1..];
              }>;
@@ -70,8 +70,7 @@ Cursor findArg(int i, list[Tree] args) {
     }
       
     if (jAst == i) {
-      return <Tree() { return args[j]; },
-        list[Tree](Tree arg, list[Tree] args) { return args[0..j] + [arg] + args[j+1..]; }>;
+      return <args[j], list[Tree](Tree arg) { return args[0..j] + [arg] + args[j+1..]; }>;
     }
     
     jAst += 1;
@@ -91,34 +90,36 @@ Tree plug(node n, Tree reduct, x:appl(Production p, list[Tree] args)) {
     return reduct;
   }  
 
+  @doc{Update the syntax tree at `cursor` if `t` is not the same}
   void update(Cursor cursor, Tree t) {
-    if (match(t.prod.def, cursor.get())) {
-      t2 = reinject(cursor.get().prod, t);
-      if (t2 != cursor.get()) {
-        args = cursor.update(t2, args);
+    if (match(t.prod.def, cursor.get)) {
+      t2 = reinject(cursor.get.prod, t);
+      if (t2 != cursor.get) {
+        args = cursor.update(t2);
       } 
     }
   }
+  
+  int arity = size(astArgs(x));
 
   i = 0;
     
   for (value v <- getChildren(n)) {
     
-    if (i >= size(astArgs(x))) {
+    if (i >= arity) {
       assert v == [];
-      assert i == size(getChildren(n)) - 1;
-      break; 
+      i += 1;
+      continue;
     }
 
     switch (v) {
 
-      case list[Tree] l: {
+      case list[Tree] l: 
         for (Tree t <- l) {
           cursor = findArg(i, args);
           update(cursor, t);
-          i += 1; // what if l == []? don't progress into args...
+          i += 1; 
         }
-      }
         
       case Tree t: {
         cursor = findArg(i, args);
@@ -128,7 +129,7 @@ Tree plug(node n, Tree reduct, x:appl(Production p, list[Tree] args)) {
          
       case node k: { 
         cursor = findArg(i, args);
-        args = cursor.update(plug(k, reduct, cursor.get()), args);
+        args = cursor.update(plug(k, reduct, cursor.get));
         i += 1;
       }
     }
