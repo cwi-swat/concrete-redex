@@ -79,7 +79,7 @@ CR red("not-true", C c, (BExp)`not true`) = {<c, (BExp)`false`>};
   
 CR red("and-true", C c, (BExp)`true and <BExp b>`) = {<c, b>};
 
-CR red("and-false", C c, (BExp)`false and <BExp b>`) = <c, (BExp)`false`>;
+CR red("and-false", C c, (BExp)`false and <BExp b>`) = {<c, (BExp)`false`>};
 
 CR red("seq", C c, (Stmt)`skip; <Stmt s2>`) = {<c, s2>};
 
@@ -126,3 +126,26 @@ Stmt exampleStmt()
           '  else 
           '    y := 0 
           '  fi`;
+
+Conf primes() 
+  = (Conf)
+`[i ↦ 0 , m ↦ 0, n ↦ 0, q ↦ 0, r ↦ 0, s ↦ 0, t ↦ 0, x ↦ 0, y ↦ 0, z ↦ 0 ] ⊢ 
+'m := 10;  n := 2;
+'while n \<= m do
+'  i := 2;  q := n/i;  t := 1;
+'  while i\<=q and 1\<=t do
+'    x := i;
+'    y := q;
+'    z := 0;
+'    while not x \<= 0 do
+'      q := x/2;
+'      r := q+q+1;
+'      if r \<= x then z := z+y else skip fi;
+'      x := q;
+'      y := y+y
+'    od;
+'    if n \<= z then t := 0 else i := i+1; q := n/i fi
+'  od; 
+'  if 1 \<= t then s := s+1 else skip fi;
+'  n := n+1
+'od`;
