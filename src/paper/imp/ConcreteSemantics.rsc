@@ -39,6 +39,14 @@ R reduceImp(Conf c) = reduce(#C, #Conf, red, c, {"leq", "seq", "if-true",
   "if-false", "lookup", "assign", "add", "div", "while", "not-false",
   "not-true", "and-true", "and-false"}); 
 
+RR applyImp(Conf c) = apply(#C, #Conf, red, c, {"leq", "seq", "if-true",
+  "if-false", "lookup", "assign", "add", "div", "while", "not-false",
+  "not-true", "and-true", "and-false"}); 
+
+
+TR traceImp(Conf c) = trace(applyImp, c); 
+
+
 default CR red(str _, C _, Tree _) = {};
 
 CR red("lookup", C c, (AExp)`<Id x>`)

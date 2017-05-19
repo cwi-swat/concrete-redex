@@ -14,9 +14,21 @@ extend paper::TraceRedex;
 
 alias CR = rel[Tree context, Tree reduct]; // context reduct pairs
 
-R reduce(type[&C<:Tree] ct, type[&T<:Tree] tt, CR(str,&C, Tree) red, Tree t, set[str] rules)
-  = { typeCast(#Tree, plug(tt, ctx2, rt)) |  <ctx1, rx> <- split(ct, t),
+RR apply(type[&C<:Tree] ct, type[&T<:Tree] tt, CR(str,&C, Tree) red, Tree t, set[str] rules)
+  = { <r, typeCast(#Tree, plug(tt, ctx2, rt))> |  <ctx1, rx> <- split(ct, t),
      str r <- rules, <ctx2, rt> <- red(r, ctx1, rx) };
+
+
+R reduce(type[&C<:Tree] ct, type[&T<:Tree] tt, CR(str,&C, Tree) red, Tree t, set[str] rules)
+  = apply(ct, tt, red, t, rules)<1>;
+
+/*
+ * Checking context grammars:
+ * ensure that every context has exactly one hole
+ */
+ 
+bool checkContext(type[&C<:Tree] ct) = true; // todo
+
 
 /*
  * Split and plug
@@ -29,8 +41,9 @@ Tree plugCtx(type[&C<:Tree] ct, Tree ctx1, &C ctx2) {
   return result;
 }
 
+@doc{Check if redex is in a context's hole}
 bool inHole(Tree t, Tree redex) = true
-  when t is hole && t@\loc == redex@\loc;
+  when t is hole && t.args[0] == redex; //t@\loc == redex@\loc;
   
 bool inHole(t:appl(Production p, list[Tree] args), Tree redex) 
   = inHole(arg, redex)
@@ -38,6 +51,7 @@ bool inHole(t:appl(Production p, list[Tree] args), Tree redex)
     Tree arg <- args,  arg@\loc?, redex@\loc <= arg@\loc;
   
 
+@doc{Split a term according to the provided context grammar}
 rel[Tree,Tree] split(type[&T<:Tree] ctxType, Tree t) {
   ctx = parse(ctxType, "<t>", t@\loc, allowAmbiguity=true);
   
@@ -49,6 +63,7 @@ rel[Tree,Tree] split(type[&T<:Tree] ctxType, Tree t) {
   return result;
 }
 
+@doc{Plug reduct back into context, turning it into a term}
 &T plug(type[&T<:Tree] tt, Tree ctx, Tree reduct) {
   Tree t = visit (ctx) {
     case Tree h => reduct when h is hole

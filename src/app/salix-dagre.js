@@ -57,6 +57,7 @@ function registerDagre(salix) {
 		
 		var _svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
 		_svg.id = id;
+    
 		attach(_svg);
 		
 		// attrs are interpreted on the svg dom
@@ -80,11 +81,12 @@ function registerDagre(salix) {
 		
 		var initialScale = 1;
 		zoom
-		  .translate([(svg.attr("width") - g.graph().width * initialScale) / 2, 20])
+      .translate([(svg.attr("width") - g.graph().width * initialScale) / 2, 20])
 		  .scale(initialScale)
 		  .event(svg);
 		svg.attr('height', g.graph().height * initialScale + 40);
-		svg.attr('width', g.graph().width * initialScale + 40);
+		// when to take attr width, and when graph.width?
+		svg.attr('width', svg.attr("width") * initialScale + 40);
 		
 		function patch(edits, attach) {
 			edits = edits || [];
