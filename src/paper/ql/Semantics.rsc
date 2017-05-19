@@ -1,7 +1,7 @@
-module paper::QLSemantics
+module paper::ql::Semantics
 
-extend paper::QL;
-extend paper::Credex;
+import paper::ql::Syntax;
+extend paper::ParseRedex;
 import IO;
 
 /*

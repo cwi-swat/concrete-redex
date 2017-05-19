@@ -1,4 +1,4 @@
-module paper::QL
+module paper::ql::Syntax
 
 extend lang::std::Layout;
 
