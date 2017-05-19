@@ -2,23 +2,29 @@ module paper::lambda::base::Semantics
 
 import paper::lambda::base::Syntax;
 import paper::lambda::base::Resolve;
-import paper::MatchRedex;
+extend paper::ParseRedex; // parse bug
 import String;
 
-data E(loc src = |tmp:///|) // evaluation contexts
-  = apply(list[Value] done, E ctx, list[Expr] rest)
-  | hole(Expr redex)
+
+syntax E
+  = "(" Value* E Expr* ")"
+  | "(" "if0" E Expr Expr ")"
+  | hole: Expr 
   ;
   
-CR red("+", E e:/hole((Expr)`(+ <Num n1> <Num n2>)`))
+  
+CR red("+", E e, (Expr)`(+ <Num n1> <Num n2>)`)
   = {<e, [Expr]"<toInt(n1) + toInt(n2)>">};
 
-CR red("βv", E e:/hole((Expr)`((λ (<Id x>) <Expr b>) <Value v>)`))
+CR red("βv", E e, (Expr)`((λ (<Id x>) <Expr b>) <Value v>)`)
   = {<e, subst((Expr)`<Id x>`, (Expr)`<Value v>`, b)>};
 
-default CR red(str _, E _) = {};
+CR red("if0", E e, (Expr)`(if0 <Num n> <Expr then> <Expr els>`)
+  = {<e, (Num)`0` := n ? then : els>};
 
-R reduceLambdaVA(Expr e) = reduce(#E, red, e, {"+", "βv"});
+default CR red(str _, E _, Tree _) = {};
+
+R reduceLambdaV(Expr e) = reduce(#E, #Expr, red, e, {"+", "βv"});
 
 int toInt(Num x) = toInt("<x>");  
   

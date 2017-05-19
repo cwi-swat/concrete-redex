@@ -32,10 +32,10 @@ RR applyScheme(Conf c) = apply(#P, #Conf, red, c,
 
 default CR red(str _, P _, Tree _) = {};
 
-CR red("MApp", (P)`<Store s> ⊢ <E c>`, (Expr)`((lambda (<Id* xs>) <Expr e>) <Expr* es>)`)
-  = <>
-  when
-    allValue(es);
+//CR red("MApp", (P)`<Store s> ⊢ <E c>`, (Expr)`((lambda (<Id* xs>) <Expr e>) <Expr* es>)`)
+//  = <>
+//  when
+//    allValue(es);
   
 CR red("MSet", (P)`<Store s> ⊢ <E e>`, (Expr)`(set! <Id x> <Value v>)`) 
   = {<(P)`<Store s2> ⊢ <E e>`, (Expr)`unspecified`>}

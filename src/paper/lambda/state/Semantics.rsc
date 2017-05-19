@@ -1,44 +1,47 @@
 module paper::lambda::state::Semantics
 
-import paper::lambda::base::Semantics;
+import paper::lambda::base::ConcreteSemantics;
 import paper::lambda::state::Syntax;
 import paper::lambda::state::Resolve;
 
-import paper::MatchRedex; 
+extend paper::ParseRedex; 
 import paper::Substitution; // for fresh
 
+import IO;
+
 // configurations
-syntax Conf = conf: Store "⊢" Expr; 
+syntax Conf = Store "⊢" Expr; 
 
 // stores
 syntax Store = {IdValue ","}*;
 syntax IdValue = Id "↦" Value;
 
-data E(loc src = |tmp:///|) // new expression evaluation contexts
-  = let(Id, E, Expr)
-  | \set(Id, E);
- 
-data C(loc src = |tmp:///|)
-  = conf(Store store, E ctx);
+syntax E // new expression evaluation contexts
+  = "(" "let" "(" "(" Id E ")" ")" Expr ")"
+  | "(" "set!" Id E ")";
+
+syntax C
+  = Store store "⊢" E; 
   
-CR red("var", C c:/hole((Expr)`<Id x>`))
+CR red("var", C c, (Expr)`<Id x>`)
   = {<c, (Expr)`<Value v>`>}
   when  isDefined(c.store, x), Value v := lookup(c.store, x);
 
-CR red("set", C c:/hole((Expr)`(set! <Id x> <Value v>)`))
+CR red("set", C c, (Expr)`(set! <Id x> <Value v>)`)
   = {<c[store=s], (Expr)`<Value v>`>}
   when isDefined(c.store, x), Store s := update(c.store, x, v);
 
-CR red("let", C c:/hole((Expr)`(let ((<Id x> <Value v>)) <Expr b>)`))
+CR red("let", C c, (Expr)`(let ((<Id x> <Value v>)) <Expr b>)`)
   = {<c[store=s], subst((Expr)`<Id x>`, (Expr)`<Id y>`, b)>}
   when 
     Id y := fresh(x, { var | /Id var := c.store }),
     Store s := update(c.store, y, v);
 
-default CR red(str n, C c:/E e1)  
-  = { <plugCtx(c, e2), r> | <E e2, Expr r> <- red(n, e1) };
+default CR red(str n, C c, Tree rx)  
+  = { <plugCtx(#E, c, e2), r> |  /E e1 := c, inHole(e1, rx), 
+          <E e2, Expr r> <- red(n, e1, rx) };
   
-R reduceLambdaSA(Conf c) = reduce(#C, red, c, {"+", "βv", "var", "set", "let"}, #E);
+R reduceLambdaS(Conf c) = reduce(#C, #Conf, red, c, {"+", "βv", "var", "set", "let"});
 
 /*
  * Lookup/update functions on store.
@@ -66,3 +69,7 @@ Conf xPlusX() = (Conf)`x ↦ 3 ⊢ (+ x x)`;
 
 Conf letExample() = (Conf)` ⊢ (let ((x 3)) (set! x (+ x 1)))`;
 Conf nestedLet() = (Conf)` ⊢ (let ((x 3)) (set! x (let ((x 10)) (+ x 1))))`;
+
+Conf bigLet() = (Conf)` ⊢ (let ((x 3)) (set! x (let ((x 10))
+                      '     (+ x (let ((x 3)) (set! x (let ((x 10)) 
+                      '      (+ x (let ((x 3)) (set! x (let ((x 10)) (+ x 1))))))))))))`;
