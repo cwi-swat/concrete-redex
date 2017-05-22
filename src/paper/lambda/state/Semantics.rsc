@@ -1,6 +1,6 @@
 module paper::lambda::state::Semantics
 
-import paper::lambda::base::ConcreteSemantics;
+import paper::lambda::base::Semantics;
 import paper::lambda::state::Syntax;
 import paper::lambda::state::Resolve;
 
@@ -20,8 +20,7 @@ syntax E // new expression evaluation contexts
   = "(" "let" "(" "(" Id E ")" ")" Expr ")"
   | "(" "set!" Id E ")";
 
-syntax C
-  = Store store "⊢" E; 
+syntax C = Store store "⊢" E; 
   
 CR red("var", C c, (Expr)`<Id x>`)
   = {<c, (Expr)`<Value v>`>}

@@ -3,11 +3,9 @@ module paper::lambda::base::Syntax
 extend lang::std::Layout;
 extend lang::std::Id;
 
-syntax Expr
-  = var: Id \ Reserved | val: Value | apply: "(" Expr+ ")";
+syntax Expr = Id \ Reserved | Value | "(" Expr+ ")";
 
-syntax Value
-  = lambda: "(" "λ" "(" Id ")" Expr ")" | \num: Num | add: "+";
+syntax Value = "(" "λ" "(" Id ")" Expr ")" | Num | "+";
 
 lexical Num = [0-9]+ !>> [0-9];
 

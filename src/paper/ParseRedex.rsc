@@ -8,6 +8,7 @@ import IO;
 extend paper::TraceRedex;
 
 
+
 /*
  * Applying reduction relations
  */
@@ -75,9 +76,11 @@ private Tree makeHole(Symbol sym, loc l)
   = appl(prod(label("hole", sym),[lit("☐")],{}),[
       appl(prod(lit("☐"),[\char-class([range(9744,9744)])],{}),[char(9744)])])[@\loc=l];
  
+anno str Tree@named;
+ 
 private void flattenAmbs(Tree t, void(Tree,Tree) k) {
-  if (t is hole) {
-    k(makeHole(t.prod.def, t@\loc), t.args[0]); 
+  if (t is hole) { //label(str name, _) := t.prod.def, /hole<named:[a-zA-Z0-9]*>/ := name) {
+    k(makeHole(t.prod.def, t@\loc), t.args[0]); //named != "" ? t.args[0][@named=named] : t.args[0]); 
     return;
   }
   

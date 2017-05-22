@@ -127,10 +127,10 @@ Stmt exampleStmt()
           '    y := 0 
           '  fi`;
 
-Conf primes() 
+Conf primes(int n) 
   = (Conf)
 `[i ↦ 0 , m ↦ 0, n ↦ 0, q ↦ 0, r ↦ 0, s ↦ 0, t ↦ 0, x ↦ 0, y ↦ 0, z ↦ 0 ] ⊢ 
-'m := 10;  n := 2;
+'m := <Int x>;  n := 2;
 'while n \<= m do
 '  i := 2;  q := n/i;  t := 1;
 '  while i\<=q and 1\<=t do
@@ -148,4 +148,5 @@ Conf primes()
 '  od; 
 '  if 1 \<= t then s := s+1 else skip fi;
 '  n := n+1
-'od`;
+'od`
+  when Int x := [Int]"<n>";

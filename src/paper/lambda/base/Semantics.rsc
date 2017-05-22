@@ -6,11 +6,7 @@ extend paper::ParseRedex; // extend because parse bug
 import String;
 
 
-syntax E
-  = "(" Value* E Expr* ")"
-  | hole: Expr 
-  ;
-  
+syntax E = "(" Value* E Expr* ")" | hole: Expr;
   
 CR red("+", E e, (Expr)`(+ <Num n1> <Num n2>)`)
   = {<e, [Expr]"<toInt(n1) + toInt(n2)>">};

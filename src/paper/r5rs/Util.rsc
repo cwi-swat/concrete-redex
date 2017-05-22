@@ -23,6 +23,7 @@ Num newPtr(Store s) {
   return [Num]"<max(ps) + 1>";
 }  
 
+
 Key freshPP(Store s) = (Key)`.<Num n>`
   when Num n := newPtr(s); 
 
@@ -59,3 +60,12 @@ Store update(Key k, Stored s,  (Store)`<{SF ","}* v1>, <Key x> ↦ <Stored _>, <
 bool isValue(Expr e) = (Expr)`<Value _>` := e;
  
 bool allValue(Expr* es) = ( true | it && isValue(e) | Expr e <- es );
+
+Expr* exprs2exprStar([]) = (Expr*)``;
+Expr* exprs2exprStar([x, *xs]) = (Expr*)`<Expr x> <Expr* es>`
+  when Expr* es := exprs2exprStar(xs);
+
+Expr* ids2exprs([]) = (Expr*)``;     
+Expr* ids2exprs([x, *xs]) = (Expr*)`<Id x> <Expr* es>`
+  when Expr* es := ids2exprs(xs);     
+

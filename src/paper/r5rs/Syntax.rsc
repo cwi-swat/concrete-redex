@@ -38,7 +38,7 @@ syntax Def
   
 syntax Expr
   = "(" Expr+ ")"
-  | "(" Expr* Expr "\<\>" Expr* ")"
+  | "(" Expr* Expr "⬦" Expr* ")"
   | "(" "if" Expr Expr Expr ")"
   | "(" "if" Expr Expr ")"
   | "(" "set!" Id Expr ")"
@@ -100,28 +100,30 @@ syntax AOp
   | "#%/"
   | "#%*"
   ;
-  
+   
 syntax P = Store "⊢" W;
-syntax W = Dws* D[Expr] Def*;
+syntax W = Dws* D Def*;
 
-syntax D[&T]
- = EStar[&T] 
- | "(" "define" Id EBullet[&T] ")"
+syntax D
+ = EMany
+ | "(" "define" Id EOne ")"
  ;
 
 syntax E
   = hole: Expr
-  | "(" Expr* EBulletDiamond Expr* ")"
-  | "(" "if" EBullet Expr Expr ")"
-  | "(" "if" EBullet Expr ")"
-  | "(" "set!" Id EBullet ")"
-  | "(" "begin" EStar Expr+ ")"
-  | "(" "#%call-with-values" "(" "lambda" "(" ")" EStar Expr* ")" Value ")"
+  | "(" Expr* EOne "⬦" Expr* ")"
+  | "(" "if" EOne Expr Expr ")"
+  | "(" "if" EOne Expr ")"
+  | "(" "set!" Id EOne ")"
+  | "(" "begin" EMany Expr+ ")"
+  | "(" "#%call-with-values" "(" "lambda" "(" ")" EMany Expr* ")" Value ")"
   ;
 
-syntax EBullet[&T] = hole: &T | E; 
+// these holes need to be named
+// so the redex needs to have some kind of tag so we can check it in the rules.
+syntax EOne = \hole-single: Expr | E; 
 
-syntax EStar[&T] = hole: &T | E;
+syntax EMany = \hole-multi: Expr | E;
 
 syntax DS
   = ES | "(" "define" Id ES ")" | "(" "begin^D" DS* ")";
@@ -130,7 +132,7 @@ syntax ES
   = "\'" Synt
   | "(" "ccons" ES ES ")"
   | "(" ES+ ")"
-  | "(" ES* ESDiamond ES* ")"
+  | "(" ES* ES "⬦" ES* ")"
   | "(" "if" ES ES ES ")"
   | "(" "if" ES ES ")"
   | "(" "set!" Id ES ")"
@@ -139,7 +141,7 @@ syntax ES
   | Value
   | "(" "push" DWS ")"
   | "(" "pop" ")"
-  | "(" "throw" Id DWS* D[Id] ")" // D[x] ???
+  | "(" "throw" Id DWS* D ")" // D[x] ???
   | "(" "lambda" "(" Id* ")" ES+ ")"
   | "(" "lambda" "(" Id+ "." Id ")" ES+ ")"
   | "(" "lambda" Id ES+ ")"
@@ -191,7 +193,7 @@ syntax S
   | "(" "lambda" Id Expr+ S Syn* ")"
   | "(" "ccons" Value S ")"
   | "(" "ccons" S Syn ")"
-  | SDiamond
+  | S "⬦"
   ;
  
 keyword Keywords

@@ -5,6 +5,24 @@ import paper::r5rs::Util;
 import paper::ParseRedex;
 
 
+/*
+This is an example of nested context matching
+
+     (--> (in-hole P (handlers (in-hole G (raise* v_1))))
+          (uncaught-exception v_1)
+
+// so this works, but is not abstracting from the contents of P
+
+CR red("6xuneh", p:(P)`<Store _> ⊢ <DWS* dws> (handlers <G _>)`, (Expr)`(raise* <Value v>)`)
+  = {<p, (Expr)`(uncaught-exception <Value v>)`>};
+  
+  
+OK: this is not possible: there can never be contexts inside the hole of another context
+
+
+*/
+
+
 CR red("5def", P p, (Def)`(define <Id x> <Value v>)`)
   = <p[store=add(x, v, p.store)], (Expr)`unspecified`>
   when x notin dom(p.store);
