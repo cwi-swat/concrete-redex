@@ -2,7 +2,8 @@ module paper::effects::Semantics
 
 extend paper::ParseRedex;
 import paper::effects::Syntax;
-
+import paper::effects::Resolve;
+import paper::Substitution;
 
 syntax E
   = "do" Pattern "⟵" E "in" Computation
@@ -37,28 +38,23 @@ CR red("ifF", C ctx, (Computation)`if false then <Computation c1> else <Computat
 CR red("apply", C ctx, (Computation)`fun <Id x> ↦ <Computation c> <Value v>`)
   = {<ctx, subst((Value)`<Id x>`, v, c)>};
 
-Computation subst(Value x, Value v, Computation c) 
-  = visit (c) { case x => v };
-
 CR red("applyPair", C ctx, (Computation)`fun (<Id x>, <Id y>) ↦ <Computation c> (<Value v1>, <Value v2>)`)
   = {<ctx, subst((Value)`<Id y>`, v2, subst((Value)`<Id x>`, v1, c))>};
 
-CR red("hReturn", C ctx, (Computation)`with <Handler h> handle return <Value v>`)
-  = {<ctx, subst((Value)`<Id x>`, v, h.cr)>}
-  when h has x, Id x := h.x;
-
-
-// ???
-CR red("hNoReturn", C ctx, (Computation)`with <Handler h> handle return <Value v>`)
-  = {<ctx, (Computation)`return <Value v>`>}
-  when !(h has x);
 
 CR red("opApply", C ctx, (Computation)`<Op op> <Value v>`)
   = {<ctx, (Computation)`fun x ↦ <Op op>(x; y. return y) <Value v>`>};
   
-CR red("desugarSeq", C ctx, (Computation)`<Computation c1>; <Computation c2>`)
-  = {<ctx, (Computation)`do x ⟵ <Computation c1> in <Computation c2>`>}; // TODO: fresh
+CR red("desugarSeq", C ctx, c:(Computation)`<Computation c1>; <Computation c2>`)
+  = {<ctx, (Computation)`do <Id x> ⟵ <Computation c1> in <Computation c2>`>}
+  when
+    Id x := fresh((Id)`x`, { x | /Id x := c });
   
+
+CR red("hReturn", C ctx, (Computation)`with <Handler h> handle return <Value v>`)
+  = {<ctx, subst((Value)`<Id x>`, v, h.cr)>}
+  when Id x := h.x;
+
   
 CR red("hOp1", C ctx, (Computation)`with <Handler h> handle <Op op>(<Value v>; <Id y>.<Computation c>)`)
   = {<ctx, subst((Value)`<Id k>`, (Value)`fun <Id y> ↦ with <Handler h> handle <Computation c>`, subst((Value)`<Id x>`, v, ci))>}
@@ -83,8 +79,14 @@ CR red("read_", C ctx, (Computation)`read_ <Value _>`)
 default CR red(str _, C _, Tree _) = {};
 
 R reduceEff(Conf c) = reduce(#C, #Conf, red, c, {"do1", "do2", "ifT", "ifF", 
-    "apply", "applyPair", "hReturn", "opApply", "hNoReturn", "desugarSeq", "hOp1", "hOp2", "print_", "read_"});  
+    "apply", "applyPair", "hReturn", "opApply", "desugarSeq", "hOp1", "hOp2", "print_", "read_"});  
 
+RR applyEff(Conf c) = apply(#C, #Conf, red, c, {"do1", "do2", "ifT", "ifF", 
+    "apply", "applyPair", "hReturn", "opApply", "desugarSeq", "hOp1", "hOp2", "print_", "read_"});  
+
+Conf small()
+  = (Conf)` ; |- <Computation c>` 
+  when Computation c := wrapWithIO((Computation)`print! "bla"`);
 
 Conf example()
   = (Conf)`"Tijs" "van der Storm"; |- <Computation c>`
@@ -103,7 +105,8 @@ Computation wrapWithIO(Computation c)
   when Value h := io();
 
 Value io() = (Value)`handler { 
-                    '  print!(x; k) ↦ print_ x; k s, 
+                    '  return x ↦ return x,
+                    '  print!(x; k) ↦ print_ x; k (), 
                     '  read!(_; k) ↦ do x ⟵ read_ () in k x 
                     '}`;
 

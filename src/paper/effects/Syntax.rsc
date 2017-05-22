@@ -10,7 +10,7 @@ syntax Value
    | "true"
    | "false"
    | "fun" Pattern "↦" Computation
-   | "rec" "fun" Pattern "↦" Computation
+ //  | "rec" "fun" Pattern "↦" Computation
    | Handler
    | Num
    | Str
@@ -31,7 +31,6 @@ lexical Str = [\"] ![\"]* [\"];
    
 syntax Handler
   = "handler" "{" "return" Id x "↦" Computation cr "," {Clause ","}* clauses "}"
-  | "handler" "{" {Clause ","}* clauses "}"
   ;
  
 lexical Op
