@@ -4,6 +4,7 @@ extend paper::ParseRedex;
 import paper::effects::Syntax;
 import paper::effects::Resolve;
 import paper::Substitution;
+import IO;
 
 syntax E
   = "do" Pattern "⟵" E "in" Computation
@@ -56,10 +57,21 @@ CR red("hReturn", C ctx, (Computation)`with <Handler h> handle return <Value v>`
   when Id x := h.x;
 
   
+// TODO: clean this mess up.
 CR red("hOp1", C ctx, (Computation)`with <Handler h> handle <Op op>(<Value v>; <Id y>.<Computation c>)`)
-  = {<ctx, subst((Value)`<Id k>`, (Value)`fun <Id y> ↦ with <Handler h> handle <Computation c>`, subst((Value)`<Id x>`, v, ci))>}
+  = {<ctx, subst((Value)`<Id k>`, (Value)`fun <Id y> ↦ with <Handler h> handle <Computation c>`, cr)>}
   when 
-    (Clause)`<Op op>(<Id x>; <Id k>) ↦ <Computation ci>` <- h.clauses; 
+    list[Clause] cls := [ c | Clause c <- h.clauses, c.op == op ],
+    cls != [], 
+    (Clause)`<Op _>(<Id x>; <Id k>) ↦ <Computation ci>` := cls[0],
+    Computation cr := subst((Value)`<Id x>`, v, ci);
+
+CR red("hOp1", C ctx, (Computation)`with <Handler h> handle <Op op>(<Value v>; <Id y>.<Computation c>)`)
+  = {<ctx, subst((Value)`<Id k>`, (Value)`fun <Id y> ↦ with <Handler h> handle <Computation c>`, ci)>}
+  when 
+    list[Clause] cls := [ c | Clause c <- h.clauses, c.op == op ],
+    cls != [], 
+    (Clause)`<Op _>(_; <Id k>) ↦ <Computation ci>` := cls[0];
 
 CR red("hOp2", C ctx, (Computation)`with <Handler h> handle <Op op>(<Value v>; <Id y>.<Computation c>)`)
   = {<ctx, (Computation)`<Op op>(<Value v>; <Id y>. with <Handler h> handle <Computation c>)`>}
@@ -86,7 +98,12 @@ RR applyEff(Conf c) = apply(#C, #Conf, red, c, {"do1", "do2", "ifT", "ifF",
 
 Conf small()
   = (Conf)` ; |- <Computation c>` 
-  when Computation c := wrapWithIO((Computation)`print! "bla"`);
+  when Computation c := wrapWithIO((Computation)`print! "bla"; print! "foo"`);
+
+
+Conf smallRead()
+  = (Conf)`"bar" ; |- <Computation c>` 
+  when Computation c := wrapWithIO((Computation)`read! ()`);
 
 Conf example()
   = (Conf)`"Tijs" "van der Storm"; |- <Computation c>`
@@ -110,8 +127,8 @@ Value io() = (Value)`handler {
                     '  read!(_; k) ↦ do x ⟵ read_ () in k x 
                     '}`;
 
-Value printIt() = (Value)`handler { print!(x; k) ↦ print_ x; k s }`;
-Value readIt() = (Value)`handler { read!(_; k) ↦ do x ⟵ read_ () in k x  }`;
+//Value printIt() = (Value)`handler { print!(x; k) ↦ print_ x; k s }`;
+//Value readIt() = (Value)`handler { read!(_; k) ↦ do x ⟵ read_ () in k x  }`;
 
 //Value alwaysRead() = (Value)`fun s ↦ return handler { read!(_; k) ↦ k s }`;
 //  
