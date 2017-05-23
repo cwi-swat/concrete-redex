@@ -36,11 +36,11 @@ CR red("let", C c, (Expr)`(let ((<Id x> <Value v>)) <Expr b>)`)
     Id y := fresh(x, { var | /Id var := c.store }),
     Store s := update(c.store, y, v);
 
-default CR red(str n, C c, Tree rx)  
-  = { <plugCtx(#E, c, e2), r> |  /E e1 := c, inHole(e1, rx), 
-          <E e2, Expr r> <- red(n, e1, rx) };
+default CR red(str n, (C)`<Store s> ⊢ <E e1>`, Tree rx)  
+  = { <(C)`<Store s> ⊢ <E e2>`, r> | <E e2, Expr r> <- red(n, e1, rx) };
   
 R reduceLambdaS(Conf c) = reduce(#C, #Conf, red, c, {"+", "βv", "var", "set", "let"});
+RR applyLambdaS(Conf c) = apply(#C, #Conf, red, c, {"+", "βv", "var", "set", "let"});
 
 /*
  * Lookup/update functions on store.
