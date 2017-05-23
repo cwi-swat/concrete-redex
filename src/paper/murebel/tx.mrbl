@@ -1,0 +1,64 @@
+entity Account {
+  amount: int
+
+  init 
+    on open(initial: int): opened {
+      this.amount = initial;
+    } 
+
+  final closed;
+  
+  state opened {
+    on deposit(n: int) this.amount = this.amount + n;
+
+    on withdraw(n: int) require this.amount > n 
+      this.amount = this.amount - n;
+    
+    on close(): closed;
+  }
+}
+
+entity Trans {
+  amount: int
+  from: Account
+  to: Account
+   
+  init 
+    on create(amount: int, from: Account, to: Account): ready {
+      this.amount = amount;
+      this.from = from;
+      this.to = to;
+    }
+    
+  state ready {
+    on doIt(): booked {
+      sync {
+        from.withDraw(x);
+        to.deposit(x);
+      } 
+    }
+  }
+    
+  final booked;
+  final canceled;
+}
+
+let from = new Account in
+let to = new Account in {
+  from.open(100);
+  to.open(50);
+  let tx1 = new Trans in {
+     tx1.create(10, from, to);
+     let to2 = new Account in {
+       to2.open(0);
+       let tx2 = new Trans in {
+         tx2.create(100, from, to2);
+         tx1.doIt();
+         tx2.doIt();
+       }
+    }
+  }
+}
+
+
+
