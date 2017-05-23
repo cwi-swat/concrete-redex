@@ -16,11 +16,11 @@ syntax Stream
   = Value*;
 
 syntax Conf
-  = Stream input ";" Stream output "|-" Computation
+  = Stream input ";" Stream output "⊢" Computation
   ;
   
 syntax C
-  = Stream input ";" Stream output "|-" E
+  = Stream input ";" Stream output "⊢" E
   ;
 
 
@@ -97,16 +97,16 @@ RR applyEff(Conf c) = apply(#C, #Conf, red, c, {"do1", "do2", "ifT", "ifF",
     "apply", "applyPair", "hReturn", "opApply", "desugarSeq", "hOp1", "hOp2", "print_", "read_"});  
 
 Conf small()
-  = (Conf)` ; |- <Computation c>` 
+  = (Conf)` ; ⊢ <Computation c>` 
   when Computation c := wrapWithIO((Computation)`print! "bla"; print! "foo"`);
 
 
 Conf smallRead()
-  = (Conf)`"bar" ; |- <Computation c>` 
+  = (Conf)`"bar" ; ⊢ <Computation c>` 
   when Computation c := wrapWithIO((Computation)`read! ()`);
 
 Conf example()
-  = (Conf)`"Tijs" "van der Storm"; |- <Computation c>`
+  = (Conf)`"Smith" "John"; ⊢ <Computation c>`
   when Computation c := wrapWithIO(printFullName());
 
 Computation printFullName() 
