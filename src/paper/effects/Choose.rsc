@@ -25,9 +25,9 @@ syntax E
 syntax V
   = hole: Value
   | V "-" Value
-  | Value "-" V
+  | Num "-" V
   | "(" V "," Value ")"
-  | "(" Value "," V ")"
+  | "(" Num "," V ")"
   | "(" V ")"
   | "max_" V
   ;
