@@ -18,15 +18,11 @@ syntax Store = Obj* objs;
 
 syntax Lock = Id id "{" Obj* objs "}";
   
-syntax Conf
-  = Store store "," Locks locks "⊢" Prog prog
-  ;
+syntax Conf = Store store "," Locks locks "⊢" Stmt*;
   
 syntax Locks = Lock* locks;
   
-syntax C = Store store "," Locks locks "⊢" P prog;
-  
-syntax P = Spec spec Stmt* S Stmt*;
+syntax C = Store store "," Locks locks "⊢" Stmt* S Stmt*;
 
 syntax Stmt  
   = "onSuccess" "(" Ref "↦" Id ")" Stmt 
@@ -34,7 +30,7 @@ syntax Stmt
   
 syntax S
   = hole: Stmt
-  | "{" Stmt* S Stmt* "}"
+  | "{" S Stmt* "}"
   | E "." Id "=" Expr ";"
   | Value "." Id "=" E ";"
   | "sync" "(" Id ")" S // NB: don't go into sync S
@@ -103,13 +99,14 @@ Id newLock(Locks locks) = l
   when Id l := fresh((Id)`l`, { l.id | Lock l <- locks.locks });
 
 Locks addLock((Locks)`<Lock* locks>`, Lock lock)
-  = (Locks)`<Lock* locks> <Lock lock>`;
+  = (Locks)`<Lock* locks>
+           '<Lock lock>`;
   
 Locks deleteLock((Locks)`<Lock* ls1> <Lock l> <Lock* ls2>`, Id lock)
   = (Locks)`<Lock* ls1> <Lock* ls2>`
   when l.id == lock;
 
-Locks getLock((Locks)`<Lock* ls1> <Lock l> <Lock* ls2>`, Id lock)
+Lock getLock((Locks)`<Lock* ls1> <Lock l> <Lock* ls2>`, Id lock)
   = l
   when l.id == lock;  
 
@@ -119,10 +116,14 @@ bool isLocked((Locks)`<Lock* ls>`, Ref r)
 Obj lookup(Store s, Ref r) = [ obj | Obj obj <- s.objs, obj.ref == r ][0];
 
 Store update((Store)`<Obj* os1> <Obj old> <Obj* os2>`, Obj obj) =
-   (Store)`<Obj* os1> <Obj obj> <Obj* os2>`
+   (Store)`<Obj* os1>
+          '<Obj obj> 
+          '<Obj* os2>`
    when old.ref == obj.ref;
 
-Store addObj((Store)`<Obj* os>`, Obj obj) = (Store)`<Obj* os> <Obj obj>`;
+Store addObj((Store)`<Obj* os>`, Obj obj) 
+  = (Store)`<Obj* os> 
+           '<Obj obj>`;
    
 Obj gotoState(Obj obj, Id x) = obj[state=(St)`<Id x>`];
 
@@ -146,7 +147,7 @@ State lookupState(Entity e, (St)`⊥`)
   = [ s | s:(State)`init <Transitions _>` <- e.states ][0];
 
 State lookupState(Entity e, (St)`<Id name>`)
-  = [ s | State s <- e.states, s.name == name ][0];
+  = [ s | State s <- e.states, (State)`init <Transitions _>` !:= s, s.name == name ][0];
 
 // TODO: make this nicer...
 bool hasTransition(State s, Id name)
@@ -165,6 +166,13 @@ Id getTarget((Trans)`on <Id _>(<{Formal ","}* _>): <Id x> <Pre _> <Stmt _>`)
 // assumes trans has been normalized
 Expr getPre((Trans)`on <Id _>(<{Formal ","}* _>): <Id x> require <Expr x> <Stmt _>`)
   = x; 
+
+bool bprintSub(map[Expr, Expr] sub) {
+ for (k <- sub) {
+   println("<k> =\> <sub[k]>");
+ }
+ return true;
+}
 
 Stmt subst(map[Expr, Expr] sub, Stmt s) {
   return visit (s) {

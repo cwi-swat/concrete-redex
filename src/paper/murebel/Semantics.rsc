@@ -13,47 +13,61 @@ set[str] muRebel() = {"noOpSeq", "eagerFailSeq", "onFail", "onSuccess", "ifT", "
   "field", "new", "add", "sub", "mul", "div", "gt", "lt", "geq", "leq",
   "eq", "neq", "and", "or", "not", "emptySeq"};
 
-RR applyMuRebel(Conf c) = apply(#C, #Conf, red, c, muRebel());
-R reduceMuRebel(Conf c) = reduce(#C, #Conf, red, c, muRebel());
+TR traceProg(Prog p) {
+  RR myApply(Conf c) = apply(#C, #Conf, CR(str n, C c, Tree t) {
+      return red(n, p.spec, c, t); 
+    }, c, muRebel());
+  Stmt* ss = p.stmts;
+  return trace(myApply, (Conf)`, ⊢ <Stmt* ss>`);
+}
 
-Conf txExample() = (Conf)` , ⊢ <Prog p>`
-  when Prog p := txProg();
+
+//RR applyMuRebel(Co p) 
+//  = apply(#C, #Conf, CR(str n, C c, Tree t) {
+//      return red(n, p.spec, c, t); 
+//    }, (Conf)`, ⊢ <Stmt* ss>`, muRebel())
+//    when Stmt* ss := p.stmts;
+    
+//R reduceMuRebel(Prog p, Conf c) = reduce(#C, #Conf, red, c, muRebel());
 
 Prog txProg() = parse(#start[Prog], |project://concrete-redex/src/paper/murebel/tx.mrbl|).top;
 
-default CR red(str _, C _, Tree _) = {};
+default CR red(str _, Spec _, C _, Tree _) = {};
 
-CR red("noOpSeq", C c, (Stmt)`{<Stmt* s1> ; <Stmt* s2>}`)
+//CR red("nestedSeq", Spec spec, C c, (Stmt)`{{<Stmt* s>}}`)
+//  = {<c, (Stmt)`{<Stmt* s> <Stmt* s2>}`>};
+
+CR red("noOpSeq", Spec spec, C c, (Stmt)`{<Stmt* s1> ; <Stmt* s2>}`)
   = {<c, (Stmt)`{<Stmt* s1> <Stmt* s2>}`>};
 
-CR red("emptySeq", C c, (Stmt)`{}`)
+CR red("emptySeq", Spec spec, C c, (Stmt)`{}`)
   = {<c, (Stmt)`;`>};
 
 // design choice? 
-CR red("eagerFailSeq", C c, (Stmt)`{<Stmt* s1> fail; <Stmt* s2>}`)
+CR red("eagerFailSeq", Spec spec, C c, (Stmt)`{<Stmt* s1> fail; <Stmt* s2>}`)
   = {<c, (Stmt)`fail;`>};
 
-CR red("onFail", C c, (Stmt)`onSuccess (<Ref _> ↦ <Id _>) fail;`)
+CR red("onFail", Spec spec, C c, (Stmt)`onSuccess (<Ref _> ↦ <Id _>) fail;`)
   = {<c, (Stmt)`fail;`>};
   
-CR red("onSuccess", C c, (Stmt)`onSuccess (<Ref r> ↦ <Id x>) ;`)
+CR red("onSuccess", Spec spec, C c, (Stmt)`onSuccess (<Ref r> ↦ <Id x>) ;`)
   = {<c[store=s2], (Stmt)`;`>}
   when 
     Obj obj1 := lookup(c.store, r),
     Obj obj2 := gotoState(obj1, x),
     Store s2 := update(c.store, obj2);
 
-CR red("ifT", C c, (Stmt)`if (true) <Stmt s1> else <Stmt s2>`)
+CR red("ifT", Spec spec, C c, (Stmt)`if (true) <Stmt s1> else <Stmt s2>`)
   = {<c, s1>};  
 
-CR red("ifF", C c, (Stmt)`if (<Value v>) <Stmt s1> else <Stmt s2>`)
+CR red("ifF", Spec spec, C c, (Stmt)`if (<Value v>) <Stmt s1> else <Stmt s2>`)
   = {<c, s2>}
   when (Value)`true` !:= v;
   
-CR red("if", C c, (Stmt)`if (<Value v>) <Stmt s>`)
+CR red("if", Spec spec, C c, (Stmt)`if (<Value v>) <Stmt s>`)
   = {<c, (Stmt)`if (<Value v>) <Stmt s> else ;`>};
 
-CR red("assign", C c, (Stmt)`<Ref r>.<Id x> = <Value v>;`)
+CR red("assign", Spec spec, C c, (Stmt)`<Ref r>.<Id x> = <Value v>;`)
   = {<c[store=s2], (Stmt)`;`>} 
   when 
     Obj obj1 := lookup(c.store, r),
@@ -61,7 +75,7 @@ CR red("assign", C c, (Stmt)`<Ref r>.<Id x> = <Value v>;`)
     Store s2 := update(c.store, obj2);
 
 
-CR red("let", C c, (Stmt)`let <Id x> = <Value v> in <Stmt s>`)
+CR red("let", Spec spec, C c, (Stmt)`let <Id x> = <Value v> in <Stmt s>`)
   = {<c, subst(( (Expr)`<Id x>`:  (Expr)`<Value v>`), s)>};
 
 /*
@@ -78,16 +92,16 @@ CR red("let", C c, (Stmt)`let <Id x> = <Value v> in <Stmt s>`)
  * -> choice: lock all participants at sync, or at trigger?
  * so two cases triggerSync and trigger
  */
-CR red("trigger", C c, it_:(Stmt)`<Ref r>.<Id x>(<{Expr ","}* es>);`)
+CR red("trigger", Spec spec, C c, it_:(Stmt)`<Ref r>.<Id x>(<{Expr ","}* es>);`)
   = {<c[locks=locks], (Stmt)`sync (<Id lock>) if (<Expr cond>) onSuccess(<Ref r> ↦ <Id trg>) <Stmt body> else fail;`>}
-  when allValue(es), !isLocked(c.locks, r),
+  when allValue(es), //!isLocked(c.locks, r),
     bprintln("======\> <it_>  "),
     bprintln("<c.store> "),
     Obj obj := lookup(c.store, r),
     St cur := obj.state,
     bprintln("Current state: <cur>"),
     bprintln("obj = <obj>"),
-    Entity e := lookupEntity(c.prog.spec, obj.class),
+    Entity e := lookupEntity(spec, obj.class),
     State st := lookupState(e, cur),
     hasTransition(st, x),
     bprintln("FOUND trans!"),
@@ -102,26 +116,28 @@ CR red("trigger", C c, it_:(Stmt)`<Ref r>.<Id x>(<{Expr ","}* es>);`)
     Id trg := getTarget(t),
     bprintln("target state <trg>"),
     map[Expr, Expr] sub := makeSubst(fs, es) + ((Expr)`this`: (Expr)`<Ref r>`),
+    bprintSub(sub),
     Expr cond := subst(sub, getPre(t)),
     bprintln("Pre condition: <cond>"),
     Stmt body := subst(sub, t.body),
     bprintln("Body <body>"),
     Id lock := newLock(c.locks),
     bprintln("Lock = <lock>"),
-    Obj* objs := c.store.objs,
-    Locks locks := addLock(c.locks, (Lock)`<Id lock>{<Obj* objs>}`);
+    bprintln("c.locks = <c.locks>"),
+    Obj* objs := c.store.objs, //lookup(c.store, r),
+    Locks locks := addLock(c.locks, (Lock)`<Id lock> {<Obj* objs>}`);
 
 //    /(ES)`sync (<Id lock>) {<S s>}` := e; 
 
-CR red("sync", C c, (Stmt)`sync <Stmt s>`)
+CR red("sync", Spec spec, C c, (Stmt)`sync <Stmt s>`)
   = {<c[locks=locks2], (Stmt)`sync (<Id lock>) <Stmt s>`>}
   when 
-    Id lock := newLock(p.locks),
-    Obj* objs := p.store.objs, // lock the whole store
+    Id lock := newLock(c.locks),
+    Obj* objs := c.store.objs, // lock the whole store
     Locks locks2 := addLock(c.locks, (Lock)`<Id lock> { <Obj* objs> }`);
     
   
-CR red("syncFail", C c, (Stmt)`sync (<Id x>) fail;`)
+CR red("syncFail", Spec spec, C c, (Stmt)`sync (<Id x>) fail;`)
   = {<c[locks=locks2][store=s2], (Stmt)`fail;`>} // restore old state from lockstore
   when
     Lock lock := getLock(c.locks, x), 
@@ -130,7 +146,7 @@ CR red("syncFail", C c, (Stmt)`sync (<Id x>) fail;`)
     Store s2 := (Store)`<Obj* objs>`;
     
     
-CR red("syncSuccess", C c, (Stmt)`sync (<Id x>) ;`)
+CR red("syncSuccess", Spec spec, C c, (Stmt)`sync (<Id x>) ;`)
   = {<c[locks=locks], (Stmt)`;`>}
   when
     Locks locks := deleteLock(c.locks, x);
@@ -140,14 +156,14 @@ CR red("syncSuccess", C c, (Stmt)`sync (<Id x>) ;`)
  * Expressions
  */
 
-CR red("field", C c, (Expr)`<Ref r>.<Id x>`)
+CR red("field", Spec spec, C c, (Expr)`<Ref r>.<Id x>`)
   = {<c, (Expr)`<Value v>`>}
   when 
     Obj obj := lookup(c.store, r),
     Value v := getField(obj, x);
     
 
-CR red("new", C c, (Expr)`new <Id x>`)
+CR red("new", Spec spec, C c, (Expr)`new <Id x>`)
   = {<c[store=s2], (Expr)`#<Num ptr>`>}
   when 
     list[int] ns := [ toInt(obj.ref.ptr) | Obj obj <- c.store.objs ],
@@ -155,42 +171,42 @@ CR red("new", C c, (Expr)`new <Id x>`)
     Num ptr := [Num]"<n>",
     Store s2 := addObj(c.store, (Obj)`#<Num ptr> : <Id x> [⊥] { }`);
 
-CR red("add", C c, (Expr)`<Num i1> + <Num i2>`) 
-  = {<c, intExpr(toNum(i1) + toNum(i2))>}; 
+CR red("add", Spec spec, C c, (Expr)`<Num i1> + <Num i2>`) 
+  = {<c, intExpr(toInt(i1) + toInt(i2))>}; 
 
-CR red("sub", C c, (Expr)`<Num i1> - <Num i2>`) 
-  = {<c, intExpr(toNum(i1) - toNum(i2))>}; 
+CR red("sub", Spec spec, C c, (Expr)`<Num i1> - <Num i2>`) 
+  = {<c, intExpr(toInt(i1) - toInt(i2))>}; 
 
-CR red("mul", C c, (Expr)`<Num i1> * <Num i2>`) 
-  = {<c, intExpr(toNum(i1) * toNum(i2))>}; 
+CR red("mul", Spec spec, C c, (Expr)`<Num i1> * <Num i2>`) 
+  = {<c, intExpr(toInt(i1) * toInt(i2))>}; 
 
-CR red("div", C c, (Expr)`<Num i1> / <Num i2>`) 
-  = {<c, intExpr(toNum(i1) / toNum(i2))>}; 
+CR red("div", Spec spec, C c, (Expr)`<Num i1> / <Num i2>`) 
+  = {<c, intExpr(toInt(i1) / toInt(i2))>}; 
 
-CR red("gt", C c, (Expr)`<Num i1> \> <Num i2>`) 
-  = {<c, boolExpr(toNum(i1) > toNum(i2))>}; 
+CR red("gt", Spec spec, C c, (Expr)`<Num i1> \> <Num i2>`) 
+  = {<c, boolExpr(toInt(i1) > toInt(i2))>}; 
 
-CR red("lt", C c, (Expr)`<Num i1> \< <Num i2>`) 
-  = {<c, boolExpr(toNum(i1) < toNum(i2))>}; 
+CR red("lt", Spec spec, C c, (Expr)`<Num i1> \< <Num i2>`) 
+  = {<c, boolExpr(toInt(i1) < toInt(i2))>}; 
 
-CR red("geq", C c, (Expr)`<Num i1> \>= <Num i2>`) 
-  = {<c, boolExpr(toNum(i1) >= toNum(i2))>}; 
+CR red("geq", Spec spec, C c, (Expr)`<Num i1> \>= <Num i2>`) 
+  = {<c, boolExpr(toInt(i1) >= toInt(i2))>}; 
 
-CR red("leq", C c, (Expr)`<Num i1> \<= <Num i2>`) 
-  = {<c, boolExpr(toNum(i1) <= toNum(i2))>}; 
+CR red("leq", Spec spec, C c, (Expr)`<Num i1> \<= <Num i2>`) 
+  = {<c, boolExpr(toInt(i1) <= toInt(i2))>}; 
 
-CR red("eq", C c, (Expr)`<Value v1> == <Value v2>`) 
+CR red("eq", Spec spec, C c, (Expr)`<Value v1> == <Value v2>`) 
   = {<c, boolExpr(v1 == v2)>}; 
 
-CR red("neq", C c, (Expr)`<Value v1> != <Value v2>`) 
+CR red("neq", Spec spec, C c, (Expr)`<Value v1> != <Value v2>`) 
   = {<c, boolExpr(v1 != v2)>}; 
 
-CR red("and", C c, (Expr)`<Bool b> && <Expr e>`) 
+CR red("and", Spec spec, C c, (Expr)`<Bool b> && <Expr e>`) 
   = {<c, (Bool)`true` ? e : boolExpr(false)>}; 
 
-CR red("or", C c, (Expr)`<Bool b> || <Expr e>`) 
+CR red("or", Spec spec, C c, (Expr)`<Bool b> || <Expr e>`) 
   = {<c, (Bool)`false` ? e : boolExpr(true)>}; 
 
-CR red("not", C c, (Expr)`!<Bool b>`) 
+CR red("not", Spec spec, C c, (Expr)`!<Bool b>`) 
   = {<c, boolExpr(b != (Bool)`true`)>};   
   

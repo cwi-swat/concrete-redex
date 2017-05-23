@@ -4,7 +4,7 @@ extend lang::std::Layout;
 extend lang::std::Id;
 
 start syntax Prog
-  = Spec Stmt*;
+  = Spec spec Stmt* stmts;
 
 syntax Spec = Entity* entities;
 
