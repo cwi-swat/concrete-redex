@@ -108,6 +108,12 @@ Conf smallRead()
 Conf example()
   = (Conf)`"Smith" "John"; ⊢ <Computation c>`
   when Computation c := wrapWithIO(printFullName());
+  
+Conf reversedExample()
+  = (Conf)` ; ⊢ with <Value r> handle <Computation abc>`
+  when
+    Value r := reversed(), 
+    Computation abc := (Computation)`print! "A"; print! "B"; print! "C"`;
 
 Computation printFullName() 
   = (Computation)`print! "What is your first name?";
@@ -124,6 +130,14 @@ Computation wrapWithIO(Computation c)
 Value io() = (Value)`handler { 
                     '  return x ↦ return x,
                     '  print!(x; k) ↦ print_ x; k (), 
+                    '  read!(_; k) ↦ do x ⟵ read_ () in k x 
+                    '}`;
+
+
+
+Value reversed() = (Value)`handler { 
+                    '  return x ↦ return x,
+                    '  print!(x; k) ↦  k (); print_ x, 
                     '  read!(_; k) ↦ do x ⟵ read_ () in k x 
                     '}`;
 
