@@ -6,10 +6,10 @@ extend lang::std::Id;
 start syntax Prog
   = Spec Stmt*;
 
-syntax Spec = Entity*;
+syntax Spec = Entity* entities;
 
 syntax Entity
-  = "entity" Id "{" Field* State* "}"
+  = "entity" Id name "{" Field* fields State* states "}"
   ;
 
 syntax Field
@@ -26,9 +26,9 @@ syntax Type
 keyword Reserved = "int" | "str" | "bool";
 
 syntax State
-  = "init" Transitions
-  | "final" Id ";"
-  | "state" Id Transitions
+  = "init" Transitions transitions
+  | "final" Id name ";"
+  | "state" Id name Transitions transitions
   ;
   
 syntax Transitions
@@ -37,14 +37,14 @@ syntax Transitions
   ;
   
 syntax Trans
-  = "on" Id "(" {Formal ","}* ")" Goto? Pre? Stmt
+  = "on" Id name "(" {Formal ","}* formals ")" Goto? goto Pre? pre Stmt body
   ;
   
-syntax Goto = ":" Id;
-syntax Pre = "require" Expr;
+syntax Goto = ":" Id target;
+syntax Pre = "require" Expr cond;
   
 syntax Formal
-  = Id ":" Type;  
+  = Id var ":" Type typ;  
   
 syntax Stmt
   = "{" Stmt* "}"
@@ -71,6 +71,7 @@ syntax Expr
   | Expr "." Id
   | Value
   | "this"
+  | "!" Expr
   > left ( 
     left Expr "*" Expr
   | left Expr "/" Expr
