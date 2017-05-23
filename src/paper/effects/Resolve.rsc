@@ -13,6 +13,10 @@ Refs resolve((Value)`fun <Id x> ↦ <Computation c>`, list[Env] envs, Lookup lu)
   = {<x@\loc, x, c@\loc, x@\loc>}
   + resolveC(c, [{<c@\loc, x@\loc, x>}] + envs, lu);
 
+Refs resolve((Value)`fun (<Id x>, <Id y>) ↦ <Computation c>`, list[Env] envs, Lookup lu)
+  = {<x@\loc, x, c@\loc, x@\loc>, <y@\loc, y, c@\loc, y@\loc>}
+  + resolveC(c, [{<c@\loc, x@\loc, x>, <c@\loc, y@\loc, y>}] + envs, lu);
+
 Refs resolve((Value)`(<Value v1>, <Value v2>)`, list[Env] envs, Lookup lu)
   = resolve(v1, envs, lu)
   + resolve(v2, envs, lu);

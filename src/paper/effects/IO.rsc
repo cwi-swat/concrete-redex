@@ -31,8 +31,6 @@ default CR red(str n, (C)`<Stream inp>; <Stream out> ⊢ <E e1>`, Computation c1
   
 set[str] ioReductions() = effReductions() + {"print", "read"};  
   
-R reduceIO(Conf c) = reduce(#C, #Conf, red, c, ioReductions());  
-
 RR applyIO(Conf c) = apply(#C, #Conf, red, c, ioReductions());  
 
 Conf small()

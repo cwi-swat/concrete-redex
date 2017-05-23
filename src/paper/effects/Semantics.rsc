@@ -66,8 +66,6 @@ default CR red(str _, E _, Tree _) = {};
 set[str] effReductions() = {"doReturn", "do", "ifT", "ifF", "apply", "applyPair", "withReturn", 
                             "desugarOp", "desugarSeq", "withClause", "withNoClause"};
 
-R reduceEff(Computation c) = reduce(#E, #Computation, red, c, effReductions());  
-
 RR applyEff(Computation c) = apply(#E, #Computation, red, c, effReductions());  
 
 // helper functions

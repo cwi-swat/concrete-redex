@@ -16,6 +16,7 @@ syntax Value
    | Str
    | "(" ")"
    | "(" Value "," Value ")"
+   | bracket "(" Value ")"
    | [\-+*/]
    ;
 
