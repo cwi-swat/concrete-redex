@@ -11,7 +11,7 @@ import IO;
 set[str] muRebel() = {"noOpSeq", "eagerFailSeq", "onFail", "onSuccess", "ifT", "ifF", "if",
   "assign", "let", "this", "trigger", "sync", "syncFail", "syncSuccess",
   "field", "new", "add", "sub", "mul", "div", "gt", "lt", "geq", "leq",
-  "eq", "neq", "and", "or", "not", "emptySeq"};
+  "eq", "neq", "and", "or", "not", "emptySeq", "noOpPar"};
 
 TR traceProg(Prog p) {
   RR myApply(Conf c) = apply(#C, #Conf, CR(str n, C c, Tree t) {
@@ -32,20 +32,26 @@ TR traceProg(Prog p) {
 
 Prog txProg() = parse(#start[Prog], |project://concrete-redex/src/paper/murebel/tx.mrbl|).top;
 
+Prog txProgSmall() = parse(#start[Prog], |project://concrete-redex/src/paper/murebel/tx-small.mrbl|).top;
+
 default CR red(str _, Spec _, C _, Tree _) = {};
 
 //CR red("nestedSeq", Spec spec, C c, (Stmt)`{{<Stmt* s>}}`)
 //  = {<c, (Stmt)`{<Stmt* s> <Stmt* s2>}`>};
 
-CR red("noOpSeq", Spec spec, C c, (Stmt)`{<Stmt* s1> ; <Stmt* s2>}`)
-  = {<c, (Stmt)`{<Stmt* s1> <Stmt* s2>}`>};
-
+CR red("noOpSeq", Spec spec, C c, (Stmt)`{; <Stmt* s>}`)
+  = {<c, (Stmt)`{<Stmt* s>}`>};
+//
 CR red("emptySeq", Spec spec, C c, (Stmt)`{}`)
   = {<c, (Stmt)`;`>};
 
 // design choice? 
-CR red("eagerFailSeq", Spec spec, C c, (Stmt)`{<Stmt* s1> fail; <Stmt* s2>}`)
+CR red("eagerFailSeq", Spec spec, C c, (Stmt)`{fail; <Stmt* s>}`)
   = {<c, (Stmt)`fail;`>};
+
+CR red("noOpPar", Spec spec, C c, (Stmt)`par ;`)
+  = {<c, (Stmt)`;`>};
+  
 
 CR red("onFail", Spec spec, C c, (Stmt)`onSuccess (<Ref _> ↦ <Id _>) fail;`)
   = {<c, (Stmt)`fail;`>};
@@ -94,7 +100,7 @@ CR red("let", Spec spec, C c, (Stmt)`let <Id x> = <Value v> in <Stmt s>`)
  */
 CR red("trigger", Spec spec, C c, it_:(Stmt)`<Ref r>.<Id x>(<{Expr ","}* es>);`)
   = {<c[locks=locks], (Stmt)`sync (<Id lock>) if (<Expr cond>) onSuccess(<Ref r> ↦ <Id trg>) <Stmt body> else fail;`>}
-  when allValue(es), //!isLocked(c.locks, r),
+  when allValue(es), !isLocked(c.locks, r),
     bprintln("======\> <it_>  "),
     bprintln("<c.store> "),
     Obj obj := lookup(c.store, r),
@@ -124,8 +130,8 @@ CR red("trigger", Spec spec, C c, it_:(Stmt)`<Ref r>.<Id x>(<{Expr ","}* es>);`)
     Id lock := newLock(c.locks),
     bprintln("Lock = <lock>"),
     bprintln("c.locks = <c.locks>"),
-    Obj* objs := c.store.objs, //lookup(c.store, r),
-    Locks locks := addLock(c.locks, (Lock)`<Id lock> {<Obj* objs>}`);
+    Obj obj := lookup(c.store, r),
+    Locks locks := addLock(c.locks, (Lock)`<Id lock> {<Obj obj>}`);
 
 //    /(ES)`sync (<Id lock>) {<S s>}` := e; 
 
@@ -133,7 +139,20 @@ CR red("sync", Spec spec, C c, (Stmt)`sync <Stmt s>`)
   = {<c[locks=locks2], (Stmt)`sync (<Id lock>) <Stmt s>`>}
   when 
     Id lock := newLock(c.locks),
-    Obj* objs := c.store.objs, // lock the whole store
+    Obj* objs := c.store.objs, // lock the whole store: TODO: should be fields of "this", how?
+    // for all refs in "active" position lock the object?
+    // so as receiver of assignment or in call.
+    //  r.t() -> lock r
+    //  r.f.t() -> lock r and r.f
+    //  r.f = x -> lock r and r.f
+    // and objects the fields actually refer to?
+    // but also transitively if transitions fire other transitions as well.
+    // we need *all* participants.   
+    // maybe: copy whole store to lock
+    // if in assignment to ref r under lock, mark the locked object as dirty
+    // same if any transition on ref r is performed
+    // then only restore dirty bits; NO: this only makes
+    // restore a bit cheaper, but it doesn't allow lock checking
     Locks locks2 := addLock(c.locks, (Lock)`<Id lock> { <Obj* objs> }`);
     
   
@@ -142,8 +161,7 @@ CR red("syncFail", Spec spec, C c, (Stmt)`sync (<Id x>) fail;`)
   when
     Lock lock := getLock(c.locks, x), 
     Locks locks2 := deleteLock(c.locks, x),
-    Obj* objs := lock.objs,
-    Store s2 := (Store)`<Obj* objs>`;
+    Store s2 := ( c.store | update(it, obj) | obj <- lock.objs );
     
     
 CR red("syncSuccess", Spec spec, C c, (Stmt)`sync (<Id x>) ;`)

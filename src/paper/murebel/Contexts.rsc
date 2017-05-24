@@ -27,12 +27,18 @@ syntax C = Store store "," Locks locks "⊢" Stmt* S Stmt*;
 syntax Stmt  
   = "onSuccess" "(" Ref "↦" Id ")" Stmt 
   | "sync" "(" Id lock ")" Stmt;
+
+syntax SPar
+  = S!block
+  | "{" Stmt* SPar Stmt* "}"
+  ;
   
 syntax S
   = hole: Stmt
-  | "{" S Stmt* "}"
+  | block: "{" S Stmt* "}"
   | E "." Id "=" Expr ";"
   | Value "." Id "=" E ";"
+  | "par" SPar 
   | "sync" "(" Id ")" S // NB: don't go into sync S
   | "onSuccess" "(" Ref "↦" Id ")" S
   | "let" Id "=" E "in" Stmt
@@ -166,6 +172,14 @@ Id getTarget((Trans)`on <Id _>(<{Formal ","}* _>): <Id x> <Pre _> <Stmt _>`)
 // assumes trans has been normalized
 Expr getPre((Trans)`on <Id _>(<{Formal ","}* _>): <Id x> require <Expr x> <Stmt _>`)
   = x; 
+
+set[Ref] reachableRefs(Store s, Stmt stmt) {
+  set[Ref] rs = {};
+  
+  visit (stmt) {
+    case x: ;
+  }
+}
 
 bool bprintSub(map[Expr, Expr] sub) {
  for (k <- sub) {

@@ -53,8 +53,11 @@ syntax Stmt
   | "if" "(" Expr ")" Stmt () !>> "else" 
   | "if" "(" Expr ")" Stmt "else" Stmt 
   | "sync" Stmt
+  | "par" Stmt 
   | ";"
   | "let" Id "=" Expr "in" Stmt
+  // disallow any Expr hier except this.field (?)
+  // then lock just fields of the current obj
   | Expr "." Id "(" {Expr ","}* ")" ";"
   ;
   

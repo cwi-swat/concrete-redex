@@ -45,20 +45,13 @@ entity Trans {
 
 let from = new Account in
 let to = new Account in {
-  from.open(100);
-  to.open(50);
-  let tx1 = new Trans in {
-     tx1.create(10, from, to);
-     let to2 = new Account in {
-       to2.open(0);
-       let tx2 = new Trans in {
-         tx2.create(100, from, to2);
-         par {
-           tx1.doIt();
-           tx2.doIt();
-         }
-       }
-    }
+  par {
+    from.open(100); 
+    to.open(50);
+  }
+  let tx = new Trans in {
+     tx.create(10, from, to);
+     tx.doIt();
   }
 }
 
