@@ -154,7 +154,15 @@ CR red("sync", Spec spec, C c, (Stmt)`sync <Stmt s>`)
     // then only restore dirty bits; NO: this only makes
     // restore a bit cheaper, but it doesn't allow lock checking
     Locks locks2 := addLock(c.locks, (Lock)`<Id lock> { <Obj* objs> }`);
-    
+
+/* if I'm under a lock and want to do modification (trans or field assign) to r
+  and r is in the lock, then compare to what is in the store
+  if what is in the lock == in the store, ok, otherwise
+  some other actor has messed with it in the meantime, so fail.   
+  So this allows sync blocks to fail by detection of interleaving
+  But it does not allow others to block while this transaction is running.
+Does it work with snapshotting the whole world?  
+    */
   
 CR red("syncFail", Spec spec, C c, (Stmt)`sync (<Id x>) fail;`)
   = {<c[locks=locks2][store=s2], (Stmt)`fail;`>} // restore old state from lockstore
