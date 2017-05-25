@@ -9,13 +9,12 @@ import IO;
 import util::Math;
 import Set;
 import List;
-import RRedex;
 import ParseTree;
 
 alias Model = tuple[rel[Tree,str,Tree] trace];
 
 App[Model] viewTrace(rel[Tree,str,Tree] trace)
-  = app(Model() { return <trace>; }, view, update, |http://localhost:7223|, |project://concrete-redex/src/app|);
+  = app(Model() { return <trace>; }, view, update, |http://localhost:7224|, |project://concrete-redex/src/app|);
 
 data Msg;
 
@@ -32,6 +31,14 @@ Model update(Msg msg, Model m) = m;
 //  return [];
 //}
 
+Tree removeLayout(Tree t) {
+  return t;
+  return visit (t) {
+    case appl(p:prod(layouts(_), _, _), list[Tree] args) =>
+      appl(p, [char(32)])
+  }
+}
+
 void view(Model m) {
   div(() {
     
@@ -40,18 +47,19 @@ void view(Model m) {
     int id = 0;
     map[Tree, str] nodeIds = ();
     for (Tree n <- m.trace<0> + m.trace<2>) {
-      nodeIds[n] = "<id>";
+      // BIG bug: == is modulo layout, but map indexing is not.
+      nodeIds[removeLayout(n)] = "<id>";
       id += 1;
     }
     
     dagre("mygraph", rankdir("TD"), width(1560), height(600), (N n, E e) {
-      for (Tree x <- nodeIds) {
-        n(nodeIds[x], shape("rect"), () { 
+      for (Tree x <- m.trace<0> + m.trace<2>) {
+        n(nodeIds[removeLayout(x)], shape("rect"), () { 
           highlightToHtml(x, container=pre);
         });
       }
       for (<Tree t1, str rule, Tree t2> <- m.trace) {
-        e(nodeIds[t1], nodeIds[t2], edgeLabel("<rule>"), lineInterpolate("basis"));
+        e(nodeIds[removeLayout(t1)], nodeIds[removeLayout(t2)], edgeLabel("<rule>"), lineInterpolate("basis"));
       }
     });    
     
