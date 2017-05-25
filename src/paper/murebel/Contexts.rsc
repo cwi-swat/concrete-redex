@@ -16,17 +16,20 @@ syntax Prop = Id name ":" Value val;
 
 syntax Store = Obj* objs;
 
-syntax Lock = Id id "{" Obj* objs "}";
+syntax Lock = Id id "{" Obj* reads "|" Obj* writes "}";
   
 syntax Conf = Store store "," Locks locks "⊢" Stmt*;
   
 syntax Locks = Lock* locks;
   
-syntax C = Store store "," Locks locks "⊢" Stmt* S Stmt*;
+syntax C = Store store "," Locks locks "⊢" Stmt* S stmt Stmt*;
+
+syntax Refs = Ref* refs;
 
 syntax Stmt  
   = "onSuccess" "(" Ref "↦" Id ")" Stmt 
-  | "sync" "(" Id lock ")" Stmt;
+  | "sync" "(" {Id ","}* locks ")" Stmt
+  ;
 
 syntax SPar
   = S!block
@@ -39,7 +42,8 @@ syntax S
   | E "." Id "=" Expr ";"
   | Value "." Id "=" E ";"
   | "par" SPar 
-  | "sync" "(" Id ")" S // NB: don't go into sync S
+  // NB * not + because of concrete syntax bug
+  | "sync" "(" {Id ","}* ")" S // NB: don't go into sync S 
   | "onSuccess" "(" Ref "↦" Id ")" S
   | "let" Id "=" E "in" Stmt
   | E "." Id "(" {Expr ","}* ")" ";"
@@ -116,8 +120,44 @@ Lock getLock((Locks)`<Lock* ls1> <Lock l> <Lock* ls2>`, Id lock)
   = l
   when l.id == lock;  
 
-bool isLocked((Locks)`<Lock* ls>`, Ref r)
-  = ( false | it || obj.ref == r | Lock l <- ls, Obj obj <- l.objs );
+
+Lock makeLock(Id i, list[Obj] reads, list[Obj] writes) {
+  Lock l = (Lock)`<Id i> { | }`;
+  for (Obj obj <- reads, (Lock)`<Id _> {<Obj* rs> | }` := l) {
+    l = (Lock)`<Id i> {<Obj obj> <Obj* rs> | }`;
+  }
+  for (Obj obj <- writes, (Lock)`<Id _> {<Obj* rs> | <Obj* ws>}` := l) {
+    l = (Lock)`<Id i> {<Obj* rs> | <Obj obj> <Obj* ws>}`;
+  }
+  return l;
+}
+
+// why yu no work?
+//Lock makeLock(Id i, list[Obj] _:[], list[Obj] _:[])
+//  =  (Lock)`<Id i> {|}`;
+//
+//Lock makeLock(Id i, list[Obj] _:[], list[Obj] _:[Obj x, *list[Obj] xs]) 
+//  = (Lock)`<Id i> {<Obj* rs> | <Obj x> <Obj* ws>}`
+//  when
+//    (Lock)`<Id _> {<Obj* rs> | <Obj* ws>}` := makeLock(i, [], xs);
+//
+//Lock makeLock(Id i, list[Obj] _:[Obj x, *list[Obj] xs], list[Obj] writes) 
+//  = (Lock)`<Id i> {<Obj x> <Obj* rs>| <Obj* ws>}`
+//  when
+//    (Lock)`<Id _> {<Obj* rs> | <Obj* ws>}` := makeLock(i, xs, writes);
+
+
+bool isWriteLockedExcept((Locks)`<Lock* ls>`, Ref r, set[Id] exc)
+  = ( false | it || (obj.ref == r && l.id notin exc) | Lock l <- ls, Obj obj <- l.writes );
+
+bool isReadLockedExcept((Locks)`<Lock* ls>`, Ref r, set[Id] exc)
+  = ( false | it || (obj.ref == r && l.id notin exc) | Lock l <- ls, Obj obj <- l.reads );
+
+bool isWriteLocked((Locks)`<Lock* ls>`, Ref r)
+  = ( false | it || obj.ref == r | Lock l <- ls, Obj obj <- l.writes );
+
+bool isReadLocked((Locks)`<Lock* ls>`, Ref r)
+  = ( false | it || obj.ref == r | Lock l <- ls, Obj obj <- l.reads );
 
 Obj lookup(Store s, Ref r) = [ obj | Obj obj <- s.objs, obj.ref == r ][0];
 
@@ -189,8 +229,13 @@ bool bprintSub(map[Expr, Expr] sub) {
 }
 
 Stmt subst(map[Expr, Expr] sub, Stmt s) {
-  return visit (s) {
+  return top-down-break visit (s) {
+    
+    case t:(Stmt)`let <Id x> = <Expr _> in <Stmt s>` => t
+      when (Expr)`<Id x>` in sub
+       
     case Expr e => sub[e] when e in sub
+  
   }
 }
 

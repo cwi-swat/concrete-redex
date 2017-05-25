@@ -50,7 +50,7 @@ let to = new Account in {
   let tx1 = new Trans in {
      tx1.create(10, from, to);
      let to2 = new Account in {
-       to2.open(0);
+       to2.open(0); // change the example so that tx1 creates the success conditions of tx2
        let tx2 = new Trans in {
          tx2.create(100, from, to2);
          par {
@@ -61,6 +61,20 @@ let to = new Account in {
     }
   }
 }
+
+// Current results:
+// 2422 edges in trace graph
+// 1 end result: 
+//#0: Account [opened] {amount: 90} 
+//#1: Account [opened] {amount: 60}
+//#2: Trans [booked] {amount: 10, from: #0, to: #1}
+//#3: Account [opened] {amount: 0}
+//#4: Trans [ready] {amount: 100, from: #0, to: #3}, ⊢ fail;
+// so tx1 is successful with the correct amounts (e.g. not -10)
+// and tx2 fails in all situations
+// 
+
+ 
 
 
 
