@@ -24,12 +24,14 @@ TR traceProg(Prog p) {
   return trace(myApply, (Conf)`, ⊢ <Stmt* ss>`);
 }
 
+TR filterMuRebel(TR tr) 
+  = filterTrace(tr, {"emptySeq", "noOpPar", "parFail", "seqFail", "noOpSeq", "syncFail", "syncSuccess"});
+
 TR filterTrace(TR tr, set[str] exclude) {
-  for (r <- exclude) {
-    while ({<Tree a, str r1, Tree b>, <Tree b, r, Tree c>, <Tree c, str r2, Tree d>, *rest} := tr) {
-      println("Removing <b> === <r> ===\> c");
-      tr = {<a, "<r1>+<r>+<r2>", d>, *rest};
-    }
+  // this is way slow...
+  for (r <- exclude, {<Tree b, r, Tree c>, <Tree a, str r1, b>, <c, str r2, Tree d>, *rest} := tr) {
+    println("Removing <b> === <r> ===\> c");
+    tr = {<a, "<r1>+<r>+<r2>", d>, *rest};
   }
   return tr;
 }
@@ -38,11 +40,14 @@ Prog txProg() = parse(#start[Prog], |project://concrete-redex/src/paper/murebel/
 
 Prog txProgSmall() = parse(#start[Prog], |project://concrete-redex/src/paper/murebel/tx-small.mrbl|).top;
 
+Prog txProgExample() = parse(#start[Prog], |project://concrete-redex/src/paper/murebel/example.mrbl|).top;
+
 default CR red(str _, Spec _, C _, Tree _) = {};
 
 // TODO: 
-// - allow filtering of transition graph to make it easier to visualize.
 // - add reason to fail so we can see why it failed
+// - for things that don't access the context, we could memoize...
+//   but then we have to do the congruence/plugCtx trick to eliminate C from the arguments.
 
 CR red("noOpSeq", Spec spec, C c, (Stmt)`{; <Stmt* s>}`)
   = {<c, (Stmt)`{<Stmt* s>}`>};
@@ -82,7 +87,7 @@ CR red("if", Spec spec, C c, (Stmt)`if (<Value v>) <Stmt s>`)
 CR red("assign", Spec spec, C c, (Stmt)`<Ref r>.<Id x> = <Value v>;`)
   = {<c[store=s2], (Stmt)`;`>} 
   when 
-    !isWriteLocked(c, r), !isReadLocked(c, r),
+    !isLocked(c, r),
     Obj obj1 := lookup(c.store, r),
     Obj obj2 := setField(obj1, x, v),
     Store s2 := update(c.store, obj2);
@@ -97,7 +102,7 @@ CR red("trigger", Spec spec, C c, it_:(Stmt)`<Ref r>.<Id x>(<{Expr ","}* es>);`)
   = {<c[locks=locks], (Stmt)`sync (<Id lock>, <{Id ","}* xs>) if (<Expr cond>) onSuccess(<Ref r> ↦ <Id trg>) <Stmt body> else fail;`>}
   when allValue(es),
     {Id ","}* xs := enclosingLocks(c.stmt),
-    !isWriteLocked(c, r), !isReadLocked(c, r), // otherwise, we can't acquire the lock
+    !isLocked(c, r), // otherwise, we can't acquire the lock
     Obj obj := lookup(c.store, r),
     St cur := obj.state,
     Entity e := lookupEntity(spec, obj.class),
@@ -126,7 +131,7 @@ CR red("sync", Spec spec, C c, (Stmt)`sync <Stmt s>`)
     // do we need to check this on allReads/Writes? The inherited refs are already protected.
     // and fail propagates always upwards 
     ( true | it && !isWriteLocked(c, r) | Ref r <- reads ),
-    ( true | it && !isReadLocked(c, r) && !isWriteLocked(c, r) | Ref r <- writes ),
+    ( true | it && !isLocked(c, r) | Ref r <- writes ),
 
     list[Obj] readObjs := [ obj | Obj obj <- c.store.objs, obj.ref in reads ],
     list[Obj] writeObjs := [ obj | Obj obj <- c.store.objs, obj.ref in writes ],
@@ -170,6 +175,12 @@ bool isReadLocked(C c, Ref r) = isReadLockedExcept(c.locks, r, { x | Id x <- xs 
 
 bool isWriteLocked(C c, Ref r) = isWriteLockedExcept(c.locks, r, { x | Id x <- xs })
    when {Id ","}* xs := enclosingLocks(c.stmt);
+
+// avoid twice calling of enclosingLocks
+bool isLocked(C c, Ref r) = isWriteLockedExcept(c.locks, r, except) || isReadLockedExcept(c.locks, r, except)
+  when 
+    {Id ","}* xs := enclosingLocks(c.stmt),
+    set[Id] except := { x | Id x <- xs };
   
   
 /*

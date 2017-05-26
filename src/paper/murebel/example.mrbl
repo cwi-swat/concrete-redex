@@ -1,10 +1,59 @@
+entity Account {
+  amount: int
 
+  init 
+    on open(initial: int): opened {
+      this.amount = initial;
+    } 
 
+  final closed;
+  
+  state opened {
+    on deposit(n: int) this.amount = this.amount + n;
 
-entity Prod {
-
+    on withdraw(n: int) require this.amount > n 
+      this.amount = this.amount - n;
+    
+    on close(): closed;
+  }
 }
 
-entity Cons {
+entity Trans {
+  amount: int
+  from: Account
+  to: Account
+   
+  init 
+    on create(amount: int, from: Account, to: Account): ready {
+      this.amount = amount;
+      this.from = from;
+      this.to = to;
+    }
+    
+  state ready {
+    on doIt(): booked {
+      this.from.withdraw(this.amount);
+      this.to.deposit(this.amount);
+    }
+  }
+    
+  final booked;
+  final canceled;
+}
 
+
+let from = new Account in
+let to = new Account in {
+  from.open(100);
+  to.open(50);
+  let tx1 = new Trans in {
+     tx1.create(10, from, to);
+     let tx2 = new Trans in {
+       tx2.create(20, to, from); // to becomes 30 or 20, from becomes 120 or 110
+       par {
+         tx1.doIt();
+         tx2.doIt();
+       }
+    }
+  }
 }

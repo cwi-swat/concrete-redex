@@ -37,7 +37,7 @@ syntax SPar
   ;
   
 syntax S
-  = hole: Stmt
+  = hole: Stmt // this one makes it always ambiguous...
   | block: "{" S Stmt* "}"
   | E "." Id "=" Expr ";"
   | Value "." Id "=" E ";"

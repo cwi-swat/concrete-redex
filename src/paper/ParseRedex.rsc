@@ -2,11 +2,11 @@ module paper::ParseRedex
 
 import ParseTree;
 import List;
+import Set;
 import Type;
 import IO;
 
 extend paper::TraceRedex;
-
 
 
 /*
@@ -16,8 +16,25 @@ extend paper::TraceRedex;
 alias CR = rel[Tree context, Tree reduct]; // context reduct pairs
 
 RR apply(type[&C<:Tree] ct, type[&T<:Tree] tt, CR(str,&C, Tree) red, Tree t, set[str] rules)
-  = { <r, typeCast(#Tree, plug(tt, ctx2, rt))> |  <ctx1, rx> <- split(ct, t),
-     str r <- rules, <ctx2, rt> <- red(r, ctx1, rx) };
+  = { <r, typeCast(#Tree, plug(tt, ctx2, rt))> |  <&C ctx1, Tree rx> <- split(ct, t),
+    //bprintln("CTX: <ctx1> and redex = <rx>"),
+     str r <- rules,
+     //bprintln("RULE: <r>"), 
+     <&C ctx2, Tree rt> <- red(r, ctx1, rx)
+     , bprintln("<rx> === <r> ===\> <rt>")
+      };
+
+
+CR closure(type[&C<:Tree] ct, type[&T<:Tree] tt, CR(str,&C, Tree) red, Tree t, set[str] rules) {
+  // todo
+  CR todo = split(ct, t);
+  CR result = {};
+  while (todo != {}) {
+    newTodo = { *red(r, ctx1, rx) | <&C ctx1, Tree rx> <- todo, str r <- rules };
+    
+  }
+  
+}
 
 
 R reduce(type[&C<:Tree] ct, type[&T<:Tree] tt, CR(str,&C, Tree) red, Tree t, set[str] rules)
@@ -58,7 +75,9 @@ rel[Tree,Tree] split(type[&T<:Tree] ctxType, Tree t) {
   
   rel[Tree, Tree] result = {};
   flattenAmbs(ctx, (Tree alt, Tree redex) {
-    result += {<alt, redex>};
+    // could we do the reductions here, without flattening it all?
+    // (a kind of deforestation)
+    result += {<alt, redex>}; 
   });
   
   return result;
@@ -80,13 +99,19 @@ anno str Tree@named;
  
 private void flattenAmbs(Tree t, void(Tree,Tree) k) {
   if (t is hole) { //label(str name, _) := t.prod.def, /hole<named:[a-zA-Z0-9]*>/ := name) {
-    k(makeHole(t.prod.def, t@\loc), t.args[0]); //named != "" ? t.args[0][@named=named] : t.args[0]); 
+    // generate plug function here too.
+    //k(makeHole(t.prod.def, t@\loc), t.args[0], Tree(Tree p) { return p });
+    k(makeHole(t.prod.def, t@\loc), t.args[0]); 
     return;
   }
   
   switch (t) {
     case appl(Production p, list[Tree] args): {
       for (int i <- [0..size(args)]) {
+        //flattenAmbs(args[i], (Tree ctx, Tree redex, Tree(Tree) plug) {
+        //k(appl(p, args[0..i] + [ctx] + args[i+1..])[@\loc=t@\loc], redex, Tree(Tree rt) {
+        //   return appl(p, args[0..i] + plug(rt) + args[i+1..])[@\loc=t@\loc]
+        // });
         flattenAmbs(args[i], (Tree ctx, Tree redex) {
           k(appl(p, args[0..i] + [ctx] + args[i+1..])[@\loc=t@\loc], redex); 
         });
