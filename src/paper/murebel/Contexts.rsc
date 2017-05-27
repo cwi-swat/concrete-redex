@@ -16,53 +16,62 @@ syntax Prop = Id name ":" Value val;
 
 syntax Store = Obj* objs;
 
-syntax Lock = Id id "{" Obj* reads "|" Obj* writes "}";
+syntax Lock = LId id "{" Obj* reads "|" Obj* writes "}";
+  
+syntax LId = "@" Num id;  
   
 syntax Conf = Store store "," Locks locks "⊢" Stmt*;
   
 syntax Locks = Lock* locks;
   
-syntax C = Store store "," Locks locks "⊢" Stmt* S stmt Stmt*;
+syntax C = Store store "," Locks locks "⊢" S stmt Stmt*;
 
 syntax Refs = Ref* refs;
 
 syntax Stmt  
   = "onSuccess" "(" Ref "↦" Id ")" Stmt 
-  | "sync" "(" {Id ","}* locks ")" Stmt
+  | "sync" "(" {LId ","}* locks ")" Stmt
   ;
 
-syntax SPar
-  = S!block
-  | "{" Stmt* SPar Stmt* "}"
-  ;
-  
 syntax S
-  = hole: Stmt // this one makes it always ambiguous...
+  = hole: Stmt!skip!fail // this one makes it always ambiguous...
+  // using the following approach we might reduce ambiguity
+  // but it means matching redexes on S, not Stmt
+  //= hole: "{" ";" Stmt* "}"
+  //| hole: "{" "}"
+  //| hole: "{" "fail" ";" Stmt* "}"
+  //| hole: Ref "." Id "=" Value ";"
+  //| hole: "par" ";"
+  //| hole: "par" "fail" ";"
+  //| hole: "onSuccess" "(" Ref "↦" Id ")" ";"
+  //| hole: "onSuccess" "(" Ref "↦" Id ")" "fail" ";"
+  //| hole: "sync" Stmt
+  //| hole: "let" Id "=" Value "in" Stmt
+  //| hole: Value "." Id "(" {Value ","}* ")" ";"
+  //| hole: "if" "(" Value ")" Stmt () !>> "else" 
+  //| hole: "if" "(" Value ")" Stmt "else" Stmt 
+  //| hole: Value "." Id "(" {Value ","}+  ")" ";"
+  
   | block: "{" S Stmt* "}"
   | E "." Id "=" Expr ";"
   | Value "." Id "=" E ";"
-  | "par" SPar 
+  | "par" S!block
+  | "par" "{" Stmt* S Stmt* "}" // NB: only parallelism at par level, not below it. 
   // NB * not + because of concrete syntax bug
-  | "sync" "(" {Id ","}* ")" S // NB: don't go into sync S 
+  | "sync" "(" {LId ","}* ")" S // NB: don't go into sync S 
   | "onSuccess" "(" Ref "↦" Id ")" S
   | "let" Id "=" E "in" Stmt
-  | E "." Id "(" {Expr ","}* ")" ";"
   | "if" "(" E ")" Stmt () !>> "else" 
   | "if" "(" E ")" Stmt "else" Stmt 
+  | E "." Id "(" {Expr ","}* ")" ";"
   | Value "." Id "(" E ")" ";"
   | Value "." Id "(" E "," {Expr ","}+ ")" ";"
   | Value "." Id "(" {Value ","}+ "," E "," {Expr ","}+ ")" ";"
   | Value "." Id "(" {Value ","}+ "," E ")" ";"
   ;
 
-//syntax Sync
-//  = "to" Id Sync
-//  | "{" Stmt* Sync Stmt* "}"
-//  | "sync" "(" Id ")" S // NB: don't go into sync S
-//  ;
-
 syntax E
-  = hole: Expr
+  = hole: Expr!value
   | E "." Id
   | E "*" Expr
   | Value "*" E
@@ -105,29 +114,32 @@ default Trans normalize(Trans t, St _) = t;
 bool allValue({Expr ","}* exprs)
   = ( true | it && (Expr)`<Value _>` := e | e <- exprs );
 
-Id newLock(Locks locks) = l
-  when Id l := fresh((Id)`l`, { l.id | Lock l <- locks.locks });
+LId newLock(Locks locks) = (LId)`@<Num id>`
+  when 
+    list[int] ns := [ toInt(n) | Lock l <- locks.locks, (LId)`@<Num n>` := l.id ],
+    int n := ((ns == []) ? 0 : 1 + max(ns)),
+    Num id := [Num]"<n>";
 
 Locks addLock((Locks)`<Lock* locks>`, Lock lock)
   = (Locks)`<Lock* locks>
            '<Lock lock>`;
   
-Locks deleteLock((Locks)`<Lock* ls1> <Lock l> <Lock* ls2>`, Id lock)
+Locks deleteLock((Locks)`<Lock* ls1> <Lock l> <Lock* ls2>`, LId lock)
   = (Locks)`<Lock* ls1> <Lock* ls2>`
   when l.id == lock;
 
-Lock getLock((Locks)`<Lock* ls1> <Lock l> <Lock* ls2>`, Id lock)
+Lock getLock((Locks)`<Lock* ls1> <Lock l> <Lock* ls2>`, LId lock)
   = l
   when l.id == lock;  
 
 
 Lock makeLock(Id i, list[Obj] reads, list[Obj] writes) {
-  Lock l = (Lock)`<Id i> { | }`;
-  for (Obj obj <- reads, (Lock)`<Id _> {<Obj* rs> | }` := l) {
-    l = (Lock)`<Id i> {<Obj obj> <Obj* rs> | }`;
+  Lock l = (Lock)`<LId i> { | }`;
+  for (Obj obj <- reads, (Lock)`<LId _> {<Obj* rs> | }` := l) {
+    l = (Lock)`<LId i> {<Obj obj> <Obj* rs> | }`;
   }
-  for (Obj obj <- writes, (Lock)`<Id _> {<Obj* rs> | <Obj* ws>}` := l) {
-    l = (Lock)`<Id i> {<Obj* rs> | <Obj obj> <Obj* ws>}`;
+  for (Obj obj <- writes, (Lock)`<LId _> {<Obj* rs> | <Obj* ws>}` := l) {
+    l = (Lock)`<LId i> {<Obj* rs> | <Obj obj> <Obj* ws>}`;
   }
   return l;
 }
@@ -147,10 +159,10 @@ Lock makeLock(Id i, list[Obj] reads, list[Obj] writes) {
 //    (Lock)`<Id _> {<Obj* rs> | <Obj* ws>}` := makeLock(i, xs, writes);
 
 
-bool isWriteLockedExcept((Locks)`<Lock* ls>`, Ref r, set[Id] exc)
+bool isWriteLockedExcept((Locks)`<Lock* ls>`, Ref r, set[LId] exc)
   = ( false | it || (obj.ref == r && l.id notin exc) | Lock l <- ls, Obj obj <- l.writes );
 
-bool isReadLockedExcept((Locks)`<Lock* ls>`, Ref r, set[Id] exc)
+bool isReadLockedExcept((Locks)`<Lock* ls>`, Ref r, set[LId] exc)
   = ( false | it || (obj.ref == r && l.id notin exc) | Lock l <- ls, Obj obj <- l.reads );
 
 bool isWriteLocked((Locks)`<Lock* ls>`, Ref r)

@@ -99,9 +99,9 @@ CR red("let", Spec spec, C c, (Stmt)`let <Id x> = <Value v> in <Stmt s>`)
 @doc{Attempt to make a transition. This requires that the receiver reference is not locked
 for reading or writing by a lock not inherited from above.}
 CR red("trigger", Spec spec, C c, it_:(Stmt)`<Ref r>.<Id x>(<{Expr ","}* es>);`)
-  = {<c[locks=locks], (Stmt)`sync (<Id lock>, <{Id ","}* xs>) if (<Expr cond>) onSuccess(<Ref r> ↦ <Id trg>) <Stmt body> else fail;`>}
+  = {<c[locks=locks], (Stmt)`sync (<LId lock>, <{LId ","}* xs>) if (<Expr cond>) onSuccess(<Ref r> ↦ <Id trg>) <Stmt body> else fail;`>}
   when allValue(es),
-    {Id ","}* xs := enclosingLocks(c.stmt),
+    {LId ","}* xs := enclosingLocks(c.stmt),
     !isLocked(c, r), // otherwise, we can't acquire the lock
     Obj obj := lookup(c.store, r),
     St cur := obj.state,
@@ -115,16 +115,16 @@ CR red("trigger", Spec spec, C c, it_:(Stmt)`<Ref r>.<Id x>(<{Expr ","}* es>);`)
     map[Expr, Expr] sub := makeSubst(fs, es) + ((Expr)`this`: (Expr)`<Ref r>`),
     Expr cond := subst(sub, getPre(t)),
     Stmt body := subst(sub, t.body),
-    Id lock := newLock(c.locks),
-    Locks locks := addLock(c.locks, (Lock)`<Id lock> {<Obj obj> | <Obj obj>}`);
+    LId lock := newLock(c.locks),
+    Locks locks := addLock(c.locks, (Lock)`<LId lock> {<Obj obj> | <Obj obj>}`);
 
 CR red("sync", Spec spec, C c, (Stmt)`sync <Stmt s>`)
-  = {<c[locks=locks2], (Stmt)`sync (<Id lock>, <{Id ","}* xs>) <Stmt s>`>}
+  = {<c[locks=locks2], (Stmt)`sync (<LId lock>, <{LId ","}* xs>) <Stmt s>`>}
   when 
-    Id lock := newLock(c.locks),
+    LId lock := newLock(c.locks),
     <set[Ref] reads, set[Ref] writes> := reachable(s, c.store, spec),
     
-    {Id ","}* xs := enclosingLocks(c.stmt),
+    {LId ","}* xs := enclosingLocks(c.stmt),
     //set[Ref] allReads := reads + { obj.ref | Id x <- xs, Lock l := getLock(c.locks, x), Obj obj <- l.reads },
     //set[Ref] allWrites := writes + { obj.ref | Id x <- xs, Lock l := getLock(c.locks, x), Obj obj <- l.writes },
     
@@ -141,8 +141,8 @@ CR red("sync", Spec spec, C c, (Stmt)`sync <Stmt s>`)
     
 
 @doc{When fail ends up in a sync, we have to restore any objects referenced in the write locks
-(read locks have only be read in this "thread" of execution so don't need restoring).} 
-CR red("syncFail", Spec spec, C c, (Stmt)`sync (<Id x>, <{Id ","}* _>) fail;`)
+(read locks have only been read in this "thread" of execution so don't need restoring).} 
+CR red("syncFail", Spec spec, C c, (Stmt)`sync (<LId x>, <{LId ","}* _>) fail;`)
   = {<c[locks=locks2][store=s2], (Stmt)`fail;`>} // restore old state from lockstore
   when
     Lock lock := getLock(c.locks, x), 
@@ -151,7 +151,7 @@ CR red("syncFail", Spec spec, C c, (Stmt)`sync (<Id x>, <{Id ","}* _>) fail;`)
     
 @doc{Success simply means that the we can discard the lock and continue. The store
 actually represents the desired state.}    
-CR red("syncSuccess", Spec spec, C c, (Stmt)`sync (<Id x>, <{Id ","}* _>) ;`)
+CR red("syncSuccess", Spec spec, C c, (Stmt)`sync (<LId x>, <{LId ","}* _>) ;`)
   = {<c[locks=locks], (Stmt)`;`>}
   when
     Locks locks := deleteLock(c.locks, x);
@@ -161,26 +161,26 @@ CR red("syncSuccess", Spec spec, C c, (Stmt)`sync (<Id x>, <{Id ","}* _>) ;`)
  * Context helpers
  */
 
-{Id ","}* enclosingLocks(S ctx) {
-  if (just((S)`sync (<{Id ","}* xs>) <S _>`) := innerMostSync(ctx, nothing())) {
+{LId ","}* enclosingLocks(S ctx) {
+  if (just((S)`sync (<{LId ","}* xs>) <S _>`) := innerMostSync(ctx, nothing())) {
     return xs;
   }
   // Yikes...
-  return typeCast(#{Id ","}*, appl(regular(\iter-star-seps(sort("Id"), 
+  return typeCast(#{LId ","}*, appl(regular(\iter-star-seps(sort("LId"), 
     [layouts("Standard"), lit(","), layouts("Standard")])), []));
 }
 
 bool isReadLocked(C c, Ref r) = isReadLockedExcept(c.locks, r, { x | Id x <- xs })
-   when {Id ","}* xs := enclosingLocks(c.stmt);
+   when {LId ","}* xs := enclosingLocks(c.stmt);
 
 bool isWriteLocked(C c, Ref r) = isWriteLockedExcept(c.locks, r, { x | Id x <- xs })
-   when {Id ","}* xs := enclosingLocks(c.stmt);
+   when {LId ","}* xs := enclosingLocks(c.stmt);
 
 // avoid twice calling of enclosingLocks
 bool isLocked(C c, Ref r) = isWriteLockedExcept(c.locks, r, except) || isReadLockedExcept(c.locks, r, except)
   when 
-    {Id ","}* xs := enclosingLocks(c.stmt),
-    set[Id] except := { x | Id x <- xs };
+    {LId ","}* xs := enclosingLocks(c.stmt),
+    set[LId] except := { x | LId x <- xs };
   
   
 /*

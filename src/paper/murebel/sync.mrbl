@@ -1,0 +1,20 @@
+entity Foo {
+  
+  init
+    on inc(x: Foo): initialized {
+      
+    }
+    
+  state initialized {}
+    
+
+  
+}
+
+let foo1 = new Foo in
+  let foo2 = new Foo in
+     par {
+       foo1.inc(foo2);
+       foo2.inc(foo1);
+     }
+     

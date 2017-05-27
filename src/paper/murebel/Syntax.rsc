@@ -4,59 +4,59 @@ extend lang::std::Layout;
 extend lang::std::Id;
 
 start syntax Prog
-  = Spec spec Stmt* stmts;
+  = prog: Spec spec Stmt* stmts;
 
-syntax Spec = Entity* entities;
+syntax Spec = spec: Entity* entities;
 
 syntax Entity
-  = "entity" Id name "{" Field* fields State* states "}"
+  = entity: "entity" Id name "{" Field* fields State* states "}"
   ;
 
 syntax Field
-  = Id ":" Type
+  = field: Id ":" Type
   ;
   
 syntax Type
-  = @category="Type" "int"
-  | @category="Type" "str"
-  | @category="Type" "bool"
-  | @category="Type" Id \ Reserved
+  = @category="Type" integer: "int"
+  | @category="Type" string: "str"
+  | @category="Type" boolean: "bool"
+  | @category="Type" entity: Id \ Reserved
   ;
 
 keyword Reserved = "int" | "str" | "bool";
 
 syntax State
-  = "init" Transitions transitions
-  | "final" Id name ";"
-  | "state" Id name Transitions transitions
+  = init: "init" Transitions transitions
+  | final: "final" Id name ";"
+  | state: "state" Id name Transitions transitions
   ;
   
 syntax Transitions
-  = Trans
-  | "{" Trans* "}"
+  = single: Trans
+  | many: "{" Trans* "}"
   ;
   
 syntax Trans
-  = "on" Id name "(" {Formal ","}* formals ")" Goto? goto Pre? pre Stmt body
+  = trans: "on" Id name "(" {Formal ","}* formals ")" Goto? goto Pre? pre Stmt body
   ;
   
 syntax Goto = ":" Id target;
 syntax Pre = "require" Expr cond;
   
 syntax Formal
-  = Id var ":" Type typ;  
+  = formal: Id var ":" Type typ;  
   
 syntax Stmt
-  = "{" Stmt* "}"
-  | "fail" ";"
-  | Expr "." Id "=" Expr ";"
-  | "if" "(" Expr ")" Stmt () !>> "else" 
-  | "if" "(" Expr ")" Stmt "else" Stmt 
-  | "sync" Stmt
-  | "par" Stmt 
-  | ";"
-  | "let" Id "=" Expr "in" Stmt
-  | Expr "." Id "(" {Expr ","}* ")" ";"
+  = block: "{" Stmt* "}"
+  | \fail: "fail" ";"
+  | assign: Expr "." Id "=" Expr ";" // todo: restrict to "this.x"
+  | ifThen: "if" "(" Expr ")" Stmt () !>> "else" 
+  | ifThenElse: "if" "(" Expr ")" Stmt "else" Stmt 
+  | sync: "sync" Stmt
+  | par: "par" Stmt 
+  | skip: ";"
+  | let: "let" Id "=" Expr "in" Stmt
+  | trigger: Expr "." Id "(" {Expr ","}* ")" ";"
   ;
   
 syntax Value
@@ -70,7 +70,7 @@ syntax Expr
   = @category="Variable" Id \ "this" \ "true" \ "false"
   | "new" Id
   | Expr "." Id
-  | Value
+  | \value: Value
   | "this"
   | "!" Expr
   > left ( 

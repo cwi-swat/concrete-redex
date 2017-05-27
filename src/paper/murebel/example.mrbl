@@ -31,9 +31,11 @@ entity Trans {
     }
     
   state ready {
-    on doIt(): booked {
-      this.from.withdraw(this.amount);
-      this.to.deposit(this.amount);
+    on transact(): booked {
+      sync {
+        this.from.withdraw(this.amount);
+        this.to.deposit(this.amount);
+      }
     }
   }
     
@@ -47,12 +49,13 @@ let to = new Account in {
   from.open(100);
   to.open(50);
   let tx1 = new Trans in {
-     tx1.create(10, from, to);
+     tx1.create(10, from, to);  // from = 90, to = 60 (if no par)
      let tx2 = new Trans in {
-       tx2.create(20, to, from); // to becomes 30 or 20, from becomes 120 or 110
+       tx2.create(20, to, from); // to = 40, from = 110  (if no par)
+       // if par to becomes 30 or 20, from becomes 120 or 110
        par {
-         tx1.doIt();
-         tx2.doIt();
+         tx1.transact();
+         tx2.transact();
        }
     }
   }

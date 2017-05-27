@@ -10,7 +10,7 @@ Maybe[S] innerMostSync(S ctx, Maybe[S] sync) {
   Maybe[S] result = sync;
   
   top-down-break visit (ctx) {
-    case s:(S)`sync (<{Id ","}* _>) <S c>`:
+    case s:(S)`sync (<{LId ","}* _>) <S c>`:
       if (just(S found) := innerMostSync(c, just(s))) 
         return just(found);
       else
