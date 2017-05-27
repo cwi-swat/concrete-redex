@@ -170,10 +170,10 @@ CR red("syncSuccess", Spec spec, C c, (Stmt)`sync (<LId x>, <{LId ","}* _>) ;`)
     [layouts("Standard"), lit(","), layouts("Standard")])), []));
 }
 
-bool isReadLocked(C c, Ref r) = isReadLockedExcept(c.locks, r, { x | Id x <- xs })
+bool isReadLocked(C c, Ref r) = isReadLockedExcept(c.locks, r, { x | LId x <- xs })
    when {LId ","}* xs := enclosingLocks(c.stmt);
 
-bool isWriteLocked(C c, Ref r) = isWriteLockedExcept(c.locks, r, { x | Id x <- xs })
+bool isWriteLocked(C c, Ref r) = isWriteLockedExcept(c.locks, r, { x | LId x <- xs })
    when {LId ","}* xs := enclosingLocks(c.stmt);
 
 // avoid twice calling of enclosingLocks

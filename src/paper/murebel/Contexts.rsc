@@ -133,7 +133,7 @@ Lock getLock((Locks)`<Lock* ls1> <Lock l> <Lock* ls2>`, LId lock)
   when l.id == lock;  
 
 
-Lock makeLock(Id i, list[Obj] reads, list[Obj] writes) {
+Lock makeLock(LId i, list[Obj] reads, list[Obj] writes) {
   Lock l = (Lock)`<LId i> { | }`;
   for (Obj obj <- reads, (Lock)`<LId _> {<Obj* rs> | }` := l) {
     l = (Lock)`<LId i> {<Obj obj> <Obj* rs> | }`;
