@@ -14,8 +14,7 @@ import util::Maybe;
 set[str] muRebel() = {"noOpSeq", "seqFail", "onFail", "onSuccess", "ifT", "ifF", "if",
   "assign", "let", "this", "trigger", "sync", "syncFail", "syncSuccess",
   "field", "new", "add", "sub", "mul", "div", "gt", "lt", "geq", "leq",
-  "eq", "neq", "and", "or", "not", "emptySeq", "noOpPar", "parFail", "inState", "bracket",
-  "noOpParSeq", "parFailSeq"};
+  "eq", "neq", "and", "or", "not", "emptySeq", "noOpPar", "parFail", "inState", "bracket"};
 
 TR traceProg(Prog p) {
   RR myApply(Conf c) = apply(#C, #Conf, CR(str n, C ctx, Tree t) {
@@ -65,9 +64,9 @@ CR red("seqFail", Spec spec, C c, (Stmt)`{fail; <Stmt* s>}`)
 
 //CR red("noOpParSeq", Spec spec, C c, (Stmt)`par {; <Stmt* ss1>}`)
 //  = {<c, (Stmt)`par {<Stmt* ss1>}`>};
-  
-CR red("parFailSeq", Spec spec, C c, (Stmt)`par {<Stmt* ss1> fail; <Stmt* ss2>}`)
-  = {<c, (Stmt)`fail;`>};
+//  
+//CR red("parFailSeq", Spec spec, C c, (Stmt)`par {fail; <Stmt* ss2>}`)
+//  = {<c, (Stmt)`fail;`>};
 
 CR red("noOpPar", Spec spec, C c, (Stmt)`par ;`)
   = {<c, (Stmt)`;`>};
@@ -198,8 +197,9 @@ bool isLocked(C c, Ref r, Tree rx) = isWriteLockedExcept(c.locks, r, except) || 
  * Expressions
  */
 
-CR red("inState", Spec spec, C c, (Expr)`<Ref r> in <Id x>`)
- = {<c, (St)`<Id x>` := lookup(c.store, r).state ? (Expr)`true` : (Expr)`false`>}; 
+CR red("inState", Spec spec, C c, rx:(Expr)`<Ref r> in <Id x>`)
+ = {<c, (St)`<Id x>` := lookup(c.store, r).state ? (Expr)`true` : (Expr)`false`>}
+ when !isWriteLocked(c, r, rx); 
  
 
 CR red("field", Spec spec, C c, rx:(Expr)`<Ref r>.<Id x>`)
