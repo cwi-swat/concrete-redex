@@ -204,7 +204,7 @@ CR red("inState", Spec spec, C c, (Expr)`<Ref r> in <Id x>`)
 
 CR red("field", Spec spec, C c, rx:(Expr)`<Ref r>.<Id x>`)
   = {<c, (Expr)`<Value v>`>}
-  when 
+  when  // TODO: check initialized
     !isWriteLocked(c, r, rx),
     Obj obj := lookup(c.store, r),
     Value v := getField(obj, x);

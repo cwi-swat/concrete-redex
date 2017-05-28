@@ -27,17 +27,19 @@ syntax S
   ;
 
 syntax P
-  = hole: Expr!value
-  | "(" E ")";
+  //= hole: Expr!value
+  = "(" E ")";
 
 syntax U // unary
   = U "." Id
+  | hole: Expr!not!mul!div!add!sub!gt!geq!lt!leq!eq!new!in!and!or
   | P
   ; 
   
 syntax N // not
   = "!" E
-  | U
+  | hole: Expr!mul!div!add!sub!gt!geq!lt!leq!eq!new!in!and!or
+  | U!hole
   ;
    
 syntax F // factor
@@ -45,7 +47,8 @@ syntax F // factor
   | Value "*" F
   | F "/" Expr
   | Value "/" F
-  | N
+  | hole: Expr!add!sub!gt!geq!lt!leq!eq!new!in!and!or
+  | N!hole
   ;
   
 syntax T // term
@@ -53,7 +56,8 @@ syntax T // term
   | Value "-" T
   | T "+" Expr
   | Value "+" T
-  | F
+  | hole: Expr!gt!geq!lt!leq!eq!new!in!and!or
+  | F!hole
   ;
 
 syntax E // relation
@@ -70,7 +74,8 @@ syntax E // relation
   | T "!=" Expr
   | Value "!=" T
   | T "in" Id
-  | T
+  | hole: Expr
+  | T!hole
   ; 
 
 
