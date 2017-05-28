@@ -1,0 +1,24 @@
+
+//Simpeler is misschien: Om A te initializen moet B not-initialized zijn en voor B, A not initialized.
+//Een initialize check valt ook onder sync (althans als je het gaat implementeren)
+//Met concurrency, zou het kunnen dat ze beiden initialized raken, terwijl dat eigenlijk niet mag.
+
+entity Foo {
+  initialized: bool
+  // how to restrict access to entities that have not been initialized?
+  // default values in field decls? And can we access entities passed in to
+  // the transition in the precondition? (Yes, I'd guess)
+  init on init(foo: Foo): ready require !(foo in ready) this.initialized = true;
+ 
+  state ready {}
+}
+
+let a = new Foo in
+  let b = new Foo in
+    sync {
+      par {
+        a.init(b);
+        b.init(a);
+      }  
+    }
+

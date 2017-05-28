@@ -14,7 +14,7 @@ import util::Maybe;
 set[str] muRebel() = {"noOpSeq", "seqFail", "onFail", "onSuccess", "ifT", "ifF", "if",
   "assign", "let", "this", "trigger", "sync", "syncFail", "syncSuccess",
   "field", "new", "add", "sub", "mul", "div", "gt", "lt", "geq", "leq",
-  "eq", "neq", "and", "or", "not", "emptySeq", "noOpPar", "parFail"};
+  "eq", "neq", "and", "or", "not", "emptySeq", "noOpPar", "parFail", "inState", "bracket"};
 
 TR traceProg(Prog p) {
   RR myApply(Conf c) = apply(#C, #Conf, CR(str n, C c, Tree t) {
@@ -42,6 +42,10 @@ Prog txProgSmall() = parse(#start[Prog], |project://concrete-redex/src/paper/mur
 
 Prog txProgExample() = parse(#start[Prog], |project://concrete-redex/src/paper/murebel/example.mrbl|).top;
 
+Prog txProgSync() = parse(#start[Prog], |project://concrete-redex/src/paper/murebel/sync.mrbl|).top;
+
+Prog timProg() = parse(#start[Prog], |project://concrete-redex/src/paper/murebel/tim.mrbl|).top;
+
 default CR red(str _, Spec _, C _, Tree _) = {};
 
 // TODO: 
@@ -51,7 +55,7 @@ default CR red(str _, Spec _, C _, Tree _) = {};
 
 CR red("noOpSeq", Spec spec, C c, (Stmt)`{; <Stmt* s>}`)
   = {<c, (Stmt)`{<Stmt* s>}`>};
-//
+
 CR red("emptySeq", Spec spec, C c, (Stmt)`{}`)
   = {<c, (Stmt)`;`>};
 
@@ -186,6 +190,9 @@ bool isLocked(C c, Ref r) = isWriteLockedExcept(c.locks, r, except) || isReadLoc
 /*
  * Expressions
  */
+
+CR red("inState", Spec spec, C c, (Expr)`<Ref r> in <Id x>`)
+ = {<c, (St)`<Id x>` := lookup(c.store, r).state ? (Expr)`true` : (Expr)`false`>}; 
  
 
 CR red("field", Spec spec, C c, (Expr)`<Ref r>.<Id x>`)
@@ -242,4 +249,7 @@ CR red("or", Spec spec, C c, (Expr)`<Bool b> || <Expr e>`)
 
 CR red("not", Spec spec, C c, (Expr)`!<Bool b>`) 
   = {<c, boolExpr(b != (Bool)`true`)>};   
+  
+CR red("bracket", Spec spec, C c, (Expr)`(<Value v>)`) 
+  = {<c, (Expr)`<Value v>`>};   
   

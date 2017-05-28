@@ -73,14 +73,20 @@ syntax S
 syntax E
   = hole: Expr!value
   | E "." Id
-  | E "*" Expr
+  > "!" E
+  > left (
+    E "*" Expr
   | Value "*" E
   | E "/" Expr
   | Value "/" E
+  )
+  > left (
   | E "-" Expr
   | Value "-" E
   | E "+" Expr
   | Value "+" E
+  )
+  > non-assoc (
   | E "\>" Expr
   | Value "\>" E
   | E "\>=" Expr 
@@ -93,6 +99,9 @@ syntax E
   | Value "==" E 
   | E "!=" Expr
   | Value "!=" E
+  | E "in" Id
+  )
+  | "(" E ")"
   ; 
 
 

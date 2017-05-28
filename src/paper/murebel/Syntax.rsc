@@ -69,10 +69,10 @@ lexical Bool = "true" | "false";
 syntax Expr
   = @category="Variable" Id \ "this" \ "true" \ "false"
   | "new" Id
-  | Expr "." Id
   | \value: Value
   | "this"
-  | "!" Expr
+  | Expr "." Id
+  > "!" Expr
   > left ( 
     left Expr "*" Expr
   | left Expr "/" Expr
@@ -88,44 +88,13 @@ syntax Expr
   | Expr "\<=" Expr 
   | Expr "==" Expr 
   | Expr "!=" Expr
+  | Expr "in" Id
   )
   > left Expr "&&" Expr
   > left Expr "||" Expr
+  | bracket "(" Expr ")"
   ; 
   
   
 lexical Num = [\-]?[0-9]+ !>> [0-9];  
   
-/*
-
-entity Account
- amount: int
- 
- init 
-   on open(initial) {
-     amount = initial
-     goto opened
-   } 
-
- final closed
- 
- state opened {
-   on deposit(n) amount = amount + n;
-
-   on withdraw(n) {
-     check amount > n;
-     amount = amount - n;
-   }
-   on close goto closed;
- }
-end
-
-entity Trans
-  on init(x: int, from: Account, to: Account)
-    sync {
-      from.withDraw(x)
-      to.deposit(x)
-    }
-    goto booked;
-
-*/

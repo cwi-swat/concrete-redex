@@ -1,20 +1,25 @@
+
 entity Foo {
-  
+  value: int
+
   init
-    on inc(x: Foo): initialized {
-      
-    }
+    on init(): initialized this.value = 0;    
     
-  state initialized {}
+  state initialized { 
+    on set(v: int) this.value = v;
+  }
     
 
   
 }
 
-let foo1 = new Foo in
-  let foo2 = new Foo in
-     par {
-       foo1.inc(foo2);
-       foo2.inc(foo1);
-     }
+let foo = new Foo in {
+  foo.init();
+  par {
+    foo.set(1);
+    foo.set(2);
+    foo.set(3);
+  }
+}
+   
      
