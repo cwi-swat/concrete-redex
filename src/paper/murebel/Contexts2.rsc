@@ -1,57 +1,13 @@
-module paper::murebel::Contexts
+module paper::murebel::Contexts2
 
-extend paper::murebel::Syntax;
+extend paper::murebel::Aux;
 import List;
 import String;
 
-syntax Obj = Ref ref ":" Id class "[" St state "]"  "{" {Prop ","}* props "}" ;
-
-syntax St = "⊥" | Id;
-
-syntax Value = Ref;
-
-syntax Ref = "#" Num ptr;  
-
-syntax Prop = Id name ":" Value val;
-
-syntax Store = Obj* objs;
-
-syntax Lock = LId id "{" Obj* reads "|" Obj* writes "}";
-  
-syntax LId = "@" Num id;  
-  
-syntax Conf = Store store "," Locks locks "⊢" Stmt*;
-  
-syntax Locks = Lock* locks;
-  
 syntax C = Store store "," Locks locks "⊢" S stmt Stmt*;
 
-syntax Refs = Ref* refs;
-
-syntax Stmt  
-  = "onSuccess" "(" Ref "↦" Id ")" Stmt 
-  | "sync" "(" {LId ","}* locks ")" Stmt
-  ;
-
 syntax S
-  = hole: Stmt!skip!fail // this one makes it always ambiguous...
-  // using the following approach we might reduce ambiguity
-  // but it means matching redexes on S, not Stmt
-  //= hole: "{" ";" Stmt* "}"
-  //| hole: "{" "}"
-  //| hole: "{" "fail" ";" Stmt* "}"
-  //| hole: Ref "." Id "=" Value ";"
-  //| hole: "par" ";"
-  //| hole: "par" "fail" ";"
-  //| hole: "onSuccess" "(" Ref "↦" Id ")" ";"
-  //| hole: "onSuccess" "(" Ref "↦" Id ")" "fail" ";"
-  //| hole: "sync" Stmt
-  //| hole: "let" Id "=" Value "in" Stmt
-  //| hole: Value "." Id "(" {Value ","}* ")" ";"
-  //| hole: "if" "(" Value ")" Stmt () !>> "else" 
-  //| hole: "if" "(" Value ")" Stmt "else" Stmt 
-  //| hole: Value "." Id "(" {Value ","}+  ")" ";"
-  
+  = hole: Stmt!skip!fail 
   | block: "{" S Stmt* "}"
   | E "." Id "=" Expr ";"
   | Value "." Id "=" E ";"
@@ -70,39 +26,51 @@ syntax S
   | Value "." Id "(" {Value ","}+ "," E ")" ";"
   ;
 
-syntax E
+syntax P
   = hole: Expr!value
-  | E "." Id // this is too ambiguous; hole should be specialized for every level in 
-            // the priority hierarchy... :-(((
-  > "!" E
-  > left (
-    E "*" Expr
-  | Value "*" E
-  | E "/" Expr
-  | Value "/" E
-  )
-  > left (
-  | E "-" Expr
-  | Value "-" E
-  | E "+" Expr
-  | Value "+" E
-  )
-  > non-assoc (
-  | E "\>" Expr
-  | Value "\>" E
-  | E "\>=" Expr 
-  | Value "\>=" E 
-  | E "\<" Expr 
-  | Value "\<" E 
-  | E "\<=" Expr 
-  | Value "\<=" E 
-  | E "==" Expr 
-  | Value "==" E 
-  | E "!=" Expr
-  | Value "!=" E
-  | E "in" Id
-  )
-  | "(" E ")"
+  | "(" E ")";
+
+syntax U // unary
+  = U "." Id
+  | P
+  ; 
+  
+syntax N // not
+  = "!" E
+  | U
+  ;
+   
+syntax F // factor
+  = F "*" Expr
+  | Value "*" F
+  | F "/" Expr
+  | Value "/" F
+  | N
+  ;
+  
+syntax T // term
+  = T "-" Expr
+  | Value "-" T
+  | T "+" Expr
+  | Value "+" T
+  | F
+  ;
+
+syntax E // relation
+  = T "\>" Expr
+  | Value "\>" T
+  | T "\>=" Expr 
+  | Value "\>=" T 
+  | T "\<" Expr 
+  | Value "\<" T 
+  | T "\<=" Expr 
+  | Value "\<=" T 
+  | T "==" Expr 
+  | Value "==" T 
+  | T "!=" Expr
+  | Value "!=" T
+  | T "in" Id
+  | T
   ; 
 
 

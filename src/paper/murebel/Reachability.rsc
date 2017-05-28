@@ -1,8 +1,8 @@
 module paper::murebel::Reachability
 
-import paper::murebel::Contexts;
-import paper::murebel::Syntax;
+import paper::murebel::Contexts2;
 import util::Maybe;
+import ParseTree;
 
 
 @doc{Find the immediately enclosing sync block around the hole.}

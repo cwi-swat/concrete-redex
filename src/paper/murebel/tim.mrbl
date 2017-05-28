@@ -14,11 +14,12 @@ entity Foo {
 }
 
 let a = new Foo in
-  let b = new Foo in
-    sync {
+  let b = new Foo in {
+    //sync {
       par {
         a.init(b);
         b.init(a);
       }  
-    }
+    //}
+ }
 

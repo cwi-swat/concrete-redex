@@ -1,4 +1,4 @@
-module paper::murebel::Contexts
+module paper::murebel::Aux
 
 extend paper::murebel::Syntax;
 import List;
@@ -20,91 +20,18 @@ syntax Lock = LId id "{" Obj* reads "|" Obj* writes "}";
   
 syntax LId = "@" Num id;  
   
-syntax Conf = Store store "," Locks locks "⊢" Stmt*;
+syntax Conf = conf: Store store "," Locks locks "⊢" Stmt*;
   
 syntax Locks = Lock* locks;
   
-syntax C = Store store "," Locks locks "⊢" S stmt Stmt*;
-
 syntax Refs = Ref* refs;
 
 syntax Stmt  
-  = "onSuccess" "(" Ref "↦" Id ")" Stmt 
-  | "sync" "(" {LId ","}* locks ")" Stmt
+  = onSuccess: "onSuccess" "(" Ref "↦" Id ")" Stmt 
+  | syncLock: "sync" "(" LIds")" Stmt
   ;
-
-syntax S
-  = hole: Stmt!skip!fail // this one makes it always ambiguous...
-  // using the following approach we might reduce ambiguity
-  // but it means matching redexes on S, not Stmt
-  //= hole: "{" ";" Stmt* "}"
-  //| hole: "{" "}"
-  //| hole: "{" "fail" ";" Stmt* "}"
-  //| hole: Ref "." Id "=" Value ";"
-  //| hole: "par" ";"
-  //| hole: "par" "fail" ";"
-  //| hole: "onSuccess" "(" Ref "↦" Id ")" ";"
-  //| hole: "onSuccess" "(" Ref "↦" Id ")" "fail" ";"
-  //| hole: "sync" Stmt
-  //| hole: "let" Id "=" Value "in" Stmt
-  //| hole: Value "." Id "(" {Value ","}* ")" ";"
-  //| hole: "if" "(" Value ")" Stmt () !>> "else" 
-  //| hole: "if" "(" Value ")" Stmt "else" Stmt 
-  //| hole: Value "." Id "(" {Value ","}+  ")" ";"
   
-  | block: "{" S Stmt* "}"
-  | E "." Id "=" Expr ";"
-  | Value "." Id "=" E ";"
-  | "par" S!block
-  | "par" "{" Stmt* S Stmt* "}" // NB: only parallelism at par level, not below it. 
-  // NB * not + because of concrete syntax bug
-  | "sync" "(" {LId ","}* ")" S // NB: don't go into sync S 
-  | "onSuccess" "(" Ref "↦" Id ")" S
-  | "let" Id "=" E "in" Stmt
-  | "if" "(" E ")" Stmt () !>> "else" 
-  | "if" "(" E ")" Stmt "else" Stmt 
-  | E "." Id "(" {Expr ","}* ")" ";"
-  | Value "." Id "(" E ")" ";"
-  | Value "." Id "(" E "," {Expr ","}+ ")" ";"
-  | Value "." Id "(" {Value ","}+ "," E "," {Expr ","}+ ")" ";"
-  | Value "." Id "(" {Value ","}+ "," E ")" ";"
-  ;
-
-syntax E
-  = hole: Expr!value
-  | E "." Id // this is too ambiguous; hole should be specialized for every level in 
-            // the priority hierarchy... :-(((
-  > "!" E
-  > left (
-    E "*" Expr
-  | Value "*" E
-  | E "/" Expr
-  | Value "/" E
-  )
-  > left (
-  | E "-" Expr
-  | Value "-" E
-  | E "+" Expr
-  | Value "+" E
-  )
-  > non-assoc (
-  | E "\>" Expr
-  | Value "\>" E
-  | E "\>=" Expr 
-  | Value "\>=" E 
-  | E "\<" Expr 
-  | Value "\<" E 
-  | E "\<=" Expr 
-  | Value "\<=" E 
-  | E "==" Expr 
-  | Value "==" E 
-  | E "!=" Expr
-  | Value "!=" E
-  | E "in" Id
-  )
-  | "(" E ")"
-  ; 
-
+syntax LIds = {LId ","}* ;
 
 int arity({Expr ","}* es) = size([ e | Expr e <- es ]);
 int arity({Formal ","}* fs) = size([ f | Formal f <- fs ]);

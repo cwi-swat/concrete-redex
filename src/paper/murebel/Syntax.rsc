@@ -67,32 +67,32 @@ syntax Value
 lexical Bool = "true" | "false";  
   
 syntax Expr
-  = @category="Variable" Id \ "this" \ "true" \ "false"
-  | "new" Id
+  = @category="Variable" var: Id \ "this" \ "true" \ "false"
+  | new: "new" Id
   | \value: Value
-  | "this"
-  | Expr "." Id
-  > "!" Expr
+  | this: "this"
+  | field: Expr "." Id
+  > not: "!" Expr
   > left ( 
-    left Expr "*" Expr
-  | left Expr "/" Expr
+    left mul: Expr "*" Expr
+  | left div: Expr "/" Expr
   ) 
   > left ( 
-    left Expr "+" Expr
-  | left Expr "-" Expr 
+    left add: Expr "+" Expr
+  | left sub: Expr "-" Expr 
   )
   > non-assoc ( 
-    Expr "\>" Expr
-  | Expr "\>=" Expr 
-  | Expr "\<" Expr 
-  | Expr "\<=" Expr 
-  | Expr "==" Expr 
-  | Expr "!=" Expr
-  | Expr "in" Id
+    gt: Expr "\>" Expr
+  | geq: Expr "\>=" Expr 
+  | lt: Expr "\<" Expr 
+  | leq: Expr "\<=" Expr 
+  | eq: Expr "==" Expr 
+  | neq: Expr "!=" Expr
+  | \in: Expr "in" Id
   )
-  > left Expr "&&" Expr
-  > left Expr "||" Expr
-  | bracket "(" Expr ")"
+  > left and: Expr "&&" Expr
+  > left or: Expr "||" Expr
+  | bracket \bracket: "(" Expr ")"
   ; 
   
   

@@ -1,9 +1,10 @@
-module paper::murebel::Semantics
+module paper::murebel::Sem
 
 import paper::murebel::Reachability; 
-extend paper::murebel::Contexts2; 
-extend paper::ParseRedex; 
-//extend paper::murebel::Aux; 
+import paper::murebel::Ctx; 
+import paper::murebel::Aux; 
+import paper::MatchRedex;
+
 import String;
 import ParseTree;
 import List;
@@ -18,9 +19,9 @@ set[str] muRebel() = {"noOpSeq", "seqFail", "onFail", "onSuccess", "ifT", "ifF",
   "noOpParSeq", "parFailSeq"};
 
 TR traceProg(Prog p) {
-  RR myApply(Conf c) = apply(#C, #Conf, CR(str n, C ctx, Tree t) {
-      return red(n, p.spec, ctx, t); 
-    }, c, muRebel());
+  RR myApply(Conf c) = apply(#C, CR(str n, C t) {
+      return red(n, p.spec, t); 
+    }, c, muRebel(), #C, #S, #E, #SPar);
   Stmt* ss = p.stmts;
   return trace(myApply, (Conf)`, ⊢ <Stmt* ss>`);
 }
@@ -47,72 +48,73 @@ Prog txProgSync() = parse(#start[Prog], |project://concrete-redex/src/paper/mure
 
 Prog timProg() = parse(#start[Prog], |project://concrete-redex/src/paper/murebel/tim.mrbl|).top;
 
-default CR red(str _, Spec _, C _, Tree t) = {};
+default CR red(str _, Spec _, node t) = {};
 
 // TODO: 
 // - add reason to fail so we can see why it failed
 // - for things that don't access the context, we could memoize...
 //   but then we have to do the congruence/plugCtx trick to eliminate C from the arguments.
 
-CR red("noOpSeq", Spec spec, C c, (Stmt)`{; <Stmt* ss>}`)
+CR red("noOpSeq", Spec spec, C c:/hole((Stmt)`{; <Stmt* ss>}`))
   = {<c, (Stmt)`{<Stmt* ss>}`>};
 
-CR red("emptySeq", Spec spec, C c, (Stmt)`{}`)
+CR red("emptySeq", Spec spec, C c:/hole((Stmt)`{}`))
   = {<c, (Stmt)`;`>};
 
-CR red("seqFail", Spec spec, C c, (Stmt)`{fail; <Stmt* s>}`)
+CR red("seqFail", Spec spec, C c:/hole((Stmt)`{fail; <Stmt* s>}`))
   = {<c, (Stmt)`fail;`>};
 
-//CR red("noOpParSeq", Spec spec, C c, (Stmt)`par {; <Stmt* ss1>}`)
+//CR red("noOpParSeq", Spec spec, C c:/hole((Stmt)`par {; <Stmt* ss1>}`)
 //  = {<c, (Stmt)`par {<Stmt* ss1>}`>};
   
-CR red("parFailSeq", Spec spec, C c, (Stmt)`par {<Stmt* ss1> fail; <Stmt* ss2>}`)
+CR red("parFailSeq", Spec spec, C c:/hole((Stmt)`par {<Stmt* ss1> fail; <Stmt* ss2>}`))
   = {<c, (Stmt)`fail;`>};
 
-CR red("noOpPar", Spec spec, C c, (Stmt)`par ;`)
+CR red("noOpPar", Spec spec, C c:/hole((Stmt)`par ;`))
   = {<c, (Stmt)`;`>};
   
-CR red("parFail", Spec spec, C c, (Stmt)`par fail;`)
+CR red("parFail", Spec spec, C c:/hole((Stmt)`par fail;`))
   = {<c, (Stmt)`fail;`>};
 
-CR red("onFail", Spec spec, C c, (Stmt)`onSuccess (<Ref _> ↦ <Id _>) fail;`)
+CR red("onFail", Spec spec, C c:/hole((Stmt)`onSuccess (<Ref _> ↦ <Id _>) fail;`))
   = {<c, (Stmt)`fail;`>};
   
-CR red("onSuccess", Spec spec, C c, (Stmt)`onSuccess (<Ref r> ↦ <Id x>) ;`)
+CR red("onSuccess", Spec spec, C c:/hole((Stmt)`onSuccess (<Ref r> ↦ <Id x>) ;`))
   = {<c[store=s2], (Stmt)`;`>}
   when // on success is always below a sync from a transition, so we can modify it here.
     Obj obj1 := lookup(c.store, r),
     Obj obj2 := gotoState(obj1, x),
     Store s2 := update(c.store, obj2);
 
-CR red("ifT", Spec spec, C c, (Stmt)`if (true) <Stmt s1> else <Stmt s2>`)
+CR red("ifT", Spec spec, C c:/hole((Stmt)`if (true) <Stmt s1> else <Stmt s2>`))
   = {<c, s1>};  
 
-CR red("ifF", Spec spec, C c, (Stmt)`if (<Value v>) <Stmt s1> else <Stmt s2>`)
+CR red("ifF", Spec spec, C c:/hole((Stmt)`if (<Value v>) <Stmt s1> else <Stmt s2>`))
   = {<c, s2>}
   when (Value)`true` !:= v;
   
-CR red("if", Spec spec, C c, (Stmt)`if (<Value v>) <Stmt s>`)
+CR red("if", Spec spec, C c:/hole((Stmt)`if (<Value v>) <Stmt s>`))
   = {<c, (Stmt)`if (<Value v>) <Stmt s> else ;`>};
 
-CR red("assign", Spec spec, C c, rx:(Stmt)`<Ref r>.<Id x> = <Value v>;`)
+CR red("assign", Spec spec, C c:/hole(rx:(Stmt)`<Ref r>.<Id x> = <Value v>;`))
   = {<c[store=s2], (Stmt)`;`>} 
   when 
-    !isLocked(c, r, rx),
+    bprintln("ASSIGN!"),
+    //!isLocked(c, r, rx),
     Obj obj1 := lookup(c.store, r),
     Obj obj2 := setField(obj1, x, v),
     Store s2 := update(c.store, obj2);
 
 
-CR red("let", Spec spec, C c, (Stmt)`let <Id x> = <Value v> in <Stmt s>`)
+CR red("let", Spec spec, C c:/hole((Stmt)`let <Id x> = <Value v> in <Stmt s>`))
   = {<c, subst(( (Expr)`<Id x>`:  (Expr)`<Value v>`), s)>};
 
 @doc{Attempt to make a transition. This requires that the receiver reference is not locked
 for reading or writing by a lock not inherited from above.}
-CR red("trigger", Spec spec, C c, it_:(Stmt)`<Ref r>.<Id x>(<{Expr ","}* es>);`)
+CR red("trigger", Spec spec, C c:/hole(it_:(Stmt)`<Ref r>.<Id x>(<{Expr ","}* es>);`))
   = {<c[locks=locks], (Stmt)`sync (<LId lock>, <{LId ","}* xs>) if (<Expr cond>) onSuccess(<Ref r> ↦ <Id trg>) <Stmt body> else fail;`>}
   when allValue(es),
-    {LId ","}* xs := enclosingLocks(c, it_),
+    {LId ","}* xs := enclosingLocks(c),
     !isLocked(c, r, it_), // otherwise, we can't acquire the lock
     Obj obj := lookup(c.store, r),
     St cur := obj.state,
@@ -129,13 +131,13 @@ CR red("trigger", Spec spec, C c, it_:(Stmt)`<Ref r>.<Id x>(<{Expr ","}* es>);`)
     LId lock := newLock(c.locks),
     Locks locks := addLock(c.locks, (Lock)`<LId lock> {<Obj obj> | <Obj obj>}`);
 
-CR red("sync", Spec spec, C c, rx:(Stmt)`sync <Stmt s>`)
+CR red("sync", Spec spec, C c:/hole(rx:(Stmt)`sync <Stmt s>`))
   = {<c[locks=locks2], (Stmt)`sync (<LId lock>, <{LId ","}* xs>) <Stmt s>`>}
   when 
     LId lock := newLock(c.locks),
     <set[Ref] reads, set[Ref] writes> := reachable(s, c.store, spec),
     
-    {LId ","}* xs := enclosingLocks(c, rx),
+    {LId ","}* xs := enclosingLocks(c),
     //set[Ref] allReads := reads + { obj.ref | Id x <- xs, Lock l := getLock(c.locks, x), Obj obj <- l.reads },
     //set[Ref] allWrites := writes + { obj.ref | Id x <- xs, Lock l := getLock(c.locks, x), Obj obj <- l.writes },
     
@@ -153,7 +155,7 @@ CR red("sync", Spec spec, C c, rx:(Stmt)`sync <Stmt s>`)
 
 @doc{When fail ends up in a sync, we have to restore any objects referenced in the write locks
 (read locks have only been read in this "thread" of execution so don't need restoring).} 
-CR red("syncFail", Spec spec, C c, (Stmt)`sync (<LId x>, <{LId ","}* _>) fail;`)
+CR red("syncFail", Spec spec, C c:/hole((Stmt)`sync (<LId x>, <{LId ","}* _>) fail;`))
   = {<c[locks=locks2][store=s2], (Stmt)`fail;`>} // restore old state from lockstore
   when
     Lock lock := getLock(c.locks, x), 
@@ -162,7 +164,7 @@ CR red("syncFail", Spec spec, C c, (Stmt)`sync (<LId x>, <{LId ","}* _>) fail;`)
     
 @doc{Success simply means that the we can discard the lock and continue. The store
 actually represents the desired state.}    
-CR red("syncSuccess", Spec spec, C c, (Stmt)`sync (<LId x>, <{LId ","}* _>) ;`)
+CR red("syncSuccess", Spec spec, C c:/hole((Stmt)`sync (<LId x>, <{LId ","}* _>) ;`))
   = {<c[locks=locks], (Stmt)`;`>}
   when
     Locks locks := deleteLock(c.locks, x);
@@ -172,9 +174,9 @@ CR red("syncSuccess", Spec spec, C c, (Stmt)`sync (<LId x>, <{LId ","}* _>) ;`)
  * Context helpers
  */
 
-{LId ","}* enclosingLocks(C ctx, Tree redex) {
-  if (just((S)`sync (<{LId ","}* xs>) <S _>`) := innerMostSync(ctx.stmt, nothing())) {
-    return xs;
+{LId ","}* enclosingLocks(C ctx) {
+  if (just({LId ","}* lids) := innerMostSync(ctx.s, nothing())) {
+    return lids;
   }
   // Yikes...
   return typeCast(#{LId ","}*, appl(regular(\iter-star-seps(sort("LId"), 
@@ -182,15 +184,16 @@ CR red("syncSuccess", Spec spec, C c, (Stmt)`sync (<LId x>, <{LId ","}* _>) ;`)
 }
 
 bool isReadLocked(C c, Ref r, Tree rx) = isReadLockedExcept(c.locks, r, { x | LId x <- xs })
-   when {LId ","}* xs := enclosingLocks(c, rx);
+   when {LId ","}* xs := enclosingLocks(c);
 
 bool isWriteLocked(C c, Ref r, Tree rx) = isWriteLockedExcept(c.locks, r, { x | LId x <- xs })
-   when {LId ","}* xs := enclosingLocks(c, rx);
+   when {LId ","}* xs := enclosingLocks(c);
 
 // avoid twice calling of enclosingLocks
 bool isLocked(C c, Ref r, Tree rx) = isWriteLockedExcept(c.locks, r, except) || isReadLockedExcept(c.locks, r, except)
   when 
-    {LId ","}* xs := enclosingLocks(c, rx),
+    {LId ","}* xs := enclosingLocks(c),
+    bprintln("XS = <xs>"),
     set[LId] except := { x | LId x <- xs };
   
   
@@ -198,11 +201,11 @@ bool isLocked(C c, Ref r, Tree rx) = isWriteLockedExcept(c.locks, r, except) || 
  * Expressions
  */
 
-CR red("inState", Spec spec, C c, (Expr)`<Ref r> in <Id x>`)
+CR red("inState", Spec spec, C c:/hole((Expr)`<Ref r> in <Id x>`))
  = {<c, (St)`<Id x>` := lookup(c.store, r).state ? (Expr)`true` : (Expr)`false`>}; 
  
 
-CR red("field", Spec spec, C c, rx:(Expr)`<Ref r>.<Id x>`)
+CR red("field", Spec spec, C c:/hole(rx:(Expr)`<Ref r>.<Id x>`))
   = {<c, (Expr)`<Value v>`>}
   when 
     !isWriteLocked(c, r, rx),
@@ -210,7 +213,7 @@ CR red("field", Spec spec, C c, rx:(Expr)`<Ref r>.<Id x>`)
     Value v := getField(obj, x);
     
 
-CR red("new", Spec spec, C c, (Expr)`new <Id x>`)
+CR red("new", Spec spec, C c:/hole((Expr)`new <Id x>`))
   = {<c[store=s2], (Expr)`#<Num ptr>`>}
   when 
     list[int] ns := [ toInt(obj.ref.ptr) | Obj obj <- c.store.objs ],
@@ -218,45 +221,45 @@ CR red("new", Spec spec, C c, (Expr)`new <Id x>`)
     Num ptr := [Num]"<n>",
     Store s2 := addObj(c.store, (Obj)`#<Num ptr> : <Id x> [⊥] { }`);
 
-CR red("add", Spec spec, C c, (Expr)`<Num i1> + <Num i2>`) 
+CR red("add", Spec spec, C c:/hole((Expr)`<Num i1> + <Num i2>`)) 
   = {<c, intExpr(toInt(i1) + toInt(i2))>}; 
 
-CR red("sub", Spec spec, C c, (Expr)`<Num i1> - <Num i2>`) 
+CR red("sub", Spec spec, C c:/hole((Expr)`<Num i1> - <Num i2>`)) 
   = {<c, intExpr(toInt(i1) - toInt(i2))>}; 
 
-CR red("mul", Spec spec, C c, (Expr)`<Num i1> * <Num i2>`) 
+CR red("mul", Spec spec, C c:/hole((Expr)`<Num i1> * <Num i2>`)) 
   = {<c, intExpr(toInt(i1) * toInt(i2))>}; 
 
-CR red("div", Spec spec, C c, (Expr)`<Num i1> / <Num i2>`) 
+CR red("div", Spec spec, C c:/hole((Expr)`<Num i1> / <Num i2>`)) 
   = {<c, intExpr(toInt(i1) / toInt(i2))>}; 
 
-CR red("gt", Spec spec, C c, (Expr)`<Num i1> \> <Num i2>`) 
+CR red("gt", Spec spec, C c:/hole((Expr)`<Num i1> \> <Num i2>`)) 
   = {<c, boolExpr(toInt(i1) > toInt(i2))>}; 
 
-CR red("lt", Spec spec, C c, (Expr)`<Num i1> \< <Num i2>`) 
+CR red("lt", Spec spec, C c:/hole((Expr)`<Num i1> \< <Num i2>`)) 
   = {<c, boolExpr(toInt(i1) < toInt(i2))>}; 
 
-CR red("geq", Spec spec, C c, (Expr)`<Num i1> \>= <Num i2>`) 
+CR red("geq", Spec spec, C c:/hole((Expr)`<Num i1> \>= <Num i2>`)) 
   = {<c, boolExpr(toInt(i1) >= toInt(i2))>}; 
 
-CR red("leq", Spec spec, C c, (Expr)`<Num i1> \<= <Num i2>`) 
+CR red("leq", Spec spec, C c:/hole((Expr)`<Num i1> \<= <Num i2>`)) 
   = {<c, boolExpr(toInt(i1) <= toInt(i2))>}; 
 
-CR red("eq", Spec spec, C c, (Expr)`<Value v1> == <Value v2>`) 
+CR red("eq", Spec spec, C c:/hole((Expr)`<Value v1> == <Value v2>`)) 
   = {<c, boolExpr(v1 == v2)>}; 
 
-CR red("neq", Spec spec, C c, (Expr)`<Value v1> != <Value v2>`) 
+CR red("neq", Spec spec, C c:/hole((Expr)`<Value v1> != <Value v2>`)) 
   = {<c, boolExpr(v1 != v2)>}; 
 
-CR red("and", Spec spec, C c, (Expr)`<Bool b> && <Expr e>`) 
+CR red("and", Spec spec, C c:/hole((Expr)`<Bool b> && <Expr e>`)) 
   = {<c, (Bool)`true` ? e : boolExpr(false)>}; 
 
-CR red("or", Spec spec, C c, (Expr)`<Bool b> || <Expr e>`) 
+CR red("or", Spec spec, C c:/hole((Expr)`<Bool b> || <Expr e>`)) 
   = {<c, (Bool)`false` ? e : boolExpr(true)>}; 
 
-CR red("not", Spec spec, C c, (Expr)`!<Bool b>`) 
+CR red("not", Spec spec, C c:/hole((Expr)`!<Bool b>`)) 
   = {<c, boolExpr(b != (Bool)`true`)>};   
   
-CR red("bracket", Spec spec, C c, (Expr)`(<Value v>)`) 
+CR red("bracket", Spec spec, C c:/hole((Expr)`(<Value v>)`)) 
   = {<c, (Expr)`<Value v>`>};   
   
