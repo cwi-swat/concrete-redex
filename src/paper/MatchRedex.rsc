@@ -11,6 +11,13 @@ extend paper::TraceRedex;
 
 alias CR = rel[node context, Tree reduct];
 
+RR apply(type[&C<:node] ct, CR(str,&C) red, &T<:Tree t, set[str] rules, type[node] cts...)
+  = { <r, plug(ctx2, rt, t)> |  ctx1 <- split(ct, t, cts),
+    bprintln("CTX <ctx2str(ctx1)>"),
+        str r <- rules, <ctx2, rt> <- red(r, ctx1)
+        , bprintln(" === <r> ===\> <rt>")
+         };
+
 R reduce(type[&C<:node] ct, CR(str,&C) red, &T<:Tree t, set[str] rules, type[node] cts...)
   = { plug(ctx2, rt, t) |  ctx1 <- split(ct, t, cts),
         str r <- rules, <ctx2, rt> <- red(r, ctx1) };
@@ -107,6 +114,9 @@ Tree plug(node n, Tree reduct, x:appl(Production p, list[Tree] args)) {
   for (value v <- getChildren(n)) {
     
     if (i >= arity) {
+      println("X = <x>");
+      println("ctx = <ctx2str(n)>");
+      println("V = <ctx2str(v)>");
       assert v == [];
       i += 1;
       continue;
@@ -151,8 +161,13 @@ set[&C] split(type[&C<:node] ctx, Tree t, list[type[node]] ctxes) {
   // todo: remove redex passing; it's not needed anymore since we do
   // deep match in the reduction rules.
   toCtx(typeMap, ctx.definitions[ctx.symbol], t, void(node n, list[Tree] redex) {
-    ////println("Succes: <ctx2str(n)>");
-    assert size(redex) == 1: "multiple redexes";
+    //println("Succes: <ctx2str(n)>");
+    //println("SIZE: <size(redex)>");
+    for (size(redex) > 1, rx <- redex) {
+      println("REDEX: <redex>");
+    }
+    assert size(redex) == 1: "multiple or no redexes";
+    
     cs += typeCast(ctx, n);
   });
   
@@ -174,9 +189,9 @@ void toCtx(TypeMap tm, list[Symbol] syms, list[Tree] args, void(list[value], lis
   default int payload(value x) = 1;
 
   toCtx(tm, syms[0], args, void(list[value] ns1, list[Tree] r1) {
-     ////println("matched <syms[0]> -\> <ctx2str(ns1)>");
+     //println("matched <syms[0]> -\> <ctx2str(ns1)>");
      toCtx(tm, syms[1..], args[payload(ns1)..], void(list[value] ns2, list[Tree] r2) {
-        ////println("matched <syms[1..]> -\> <ctx2str(ns2)>");
+        //println("matched <syms[1..]> -\> <ctx2str(ns2)>");
         k(ns1 + ns2, r1 + r2);
      });
   });
@@ -214,16 +229,16 @@ void toCtx(TypeMap tm, label(_,  Symbol s), list[Tree] args, void(list[value], l
   = toCtx(tm, s, args, k);
 
 default void toCtx(TypeMap tm, Symbol s, list[Tree] args, void(list[value], list[Tree]) k) {
-  ////println("trying symbol <s>");
+  println("trying symbol <s>");
   if (args == []) {
     return;
   }
   if (match(s, args[0])) {
     k([uninject(s, args[0])], []);
   }
-  //else {
-  //  //println("****** failed to match \'<args[0]>\' (<args[0].prod>) to <s>");
-  //}
+  else {
+    println("****** failed to match \'<args[0]>\' (<args[0].prod>) to <s>");
+  }
 }
 
 @doc{Converting a tree to a context based on production}
@@ -232,19 +247,24 @@ void toCtx(TypeMap tm, cons(label(str name, Symbol ctxSym), list[Symbol] syms, _
   // then, do not do astArgs etc.
   ////println("In cons: <name> of <ctxSym>");
   ////println("prod = <t.prod>");
-  if (name == "hole") {
-    ////println("Found hole: <ctxSym>");
-    ////println("T = <t> (<t.prod.def>)");
-    k(make(tm[ctxSym], "hole", [t], ("src": t@\loc)), [t]);
+  //println("Syms[0] = <syms[0]>");
+  //println("t = <t.prod.def>");
+  //
+  // todo: fix label issue here.
+  if (name == "hole", label(_, Symbol s) := syms[0], match(s, t)) {
+    //println("Found hole: <ctxSym>");
+    //println("T = <t> (<t.prod.def>)");
+    //"src": t@\loc
+    k(make(tm[ctxSym], "hole", [t], ()), [t]);
   }
   else if (name == "inject") {
-    ////println("Injecting another context");
+    //println("Injecting another context");
     toCtx(tm, [syms[0]], [t], void(list[value] args, list[Tree] redex) {
       k(make(tm[ctxSym], name, args, ("src": t@\loc)), redex);
     });
   }
   else if (label(name, _) := t.prod.def) {
-    ////println("trying prod <t.prod>");
+    //println("trying prod <t.prod>");
     toCtx(tm, syms, astArgs(t), void(list[value] args, list[Tree] redex) {
       k(make(tm[ctxSym], name, args, ("src": t@\loc)), redex);
     }); 
@@ -282,6 +302,9 @@ bool match(Symbol s, appl(prod(s, _, _), _)) = true;
 bool match(sort(str name), appl(prod(lex(name), _, _), _)) = true;
 
 bool match(Symbol s, appl(prod(_, [Symbol s2], _), [Tree arg])) = match(s, arg);
+
+// Not sure here.
+//bool match(\iter-star-seps(Symbol s, _), appl(prod(Symbol s, _, _), [Tree arg])) = true;
 
 default bool match(Symbol _, Tree _) = false;
 

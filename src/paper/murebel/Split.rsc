@@ -42,6 +42,13 @@ Tree plug(Tree ctx, Tree reduct, loc l) {
 }
 
 
+list[Tree] stack = [];
+rel[Tree(Tree), Tree] hole2(Tree t) {
+  parent = stack[-1];
+  // find t in parent (?) and make plug
+  // push t on stack and call hole
+}
+
 bool terminated(Stmt s) = s is skip || s is \fail;
 
 bool allTerminated(Stmt* ss) = ( true | it && terminated(s) | Stmt s <- ss );
