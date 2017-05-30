@@ -4,18 +4,17 @@
 //Met concurrency, zou het kunnen dat ze beiden initialized raken, terwijl dat eigenlijk niet mag.
 
 entity Foo {
-  initialized: bool
   // how to restrict access to entities that have not been initialized?
   // default values in field decls? And can we access entities passed in to
   // the transition in the precondition? (Yes, I'd guess)
-  init on init(foo: Foo): ready require !(foo in ready) this.initialized = true;
+  init on init(foo: Foo): ready require !(foo in ready);
  
   state ready {}
 }
 
 let a = new Foo in
   let b = new Foo in {
-    par {
+    sync par {
         a.init(b);
         b.init(a);
       }  

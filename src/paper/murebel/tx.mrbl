@@ -13,6 +13,9 @@ entity Account {
 
     on withdraw(n: int) require this.amount > n 
       this.amount = this.amount - n;
+      
+    on interest() 
+      this.amount = this.amount * 20;
     
     on close(): closed;
   }
@@ -31,11 +34,11 @@ entity Trans {
     }
     
   state ready {
-    on doIt(): booked {
-      sync {
+    on book(): booked {
+      //sync {
         this.from.withdraw(this.amount);
         this.to.deposit(this.amount);
-      } 
+      //} 
     }
   }
     
@@ -49,16 +52,10 @@ let to = new Account in {
   to.open(50);
   let tx1 = new Trans in {
      tx1.create(10, from, to);
-     let to2 = new Account in {
-       to2.open(0); // change the example so that tx1 creates the success conditions of tx2
-       let tx2 = new Trans in {
-         tx2.create(100, from, to2);
-         par {
-           tx1.doIt();
-           tx2.doIt();
-         }
-       }
-    }
+     par {
+       tx1.book();
+       from.interest();
+     }
   }
 }
 

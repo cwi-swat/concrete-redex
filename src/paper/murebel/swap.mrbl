@@ -1,0 +1,35 @@
+
+
+entity Cell {
+  value: int
+  
+  init on init(n: int): ready this.value = n;
+}
+
+entity Swap {
+  init on init(): ready;
+  
+  state ready on swap(c1: Cell, c2: Cell) 
+    sync let temp = c1.value in {
+      c1.value = c2.value;
+      c2.value = temp;
+    }
+}
+
+let c1 = new Cell in 
+  let c2 = new Cell in 
+    let swap1 = new Swap in 
+      let swap2 = new Swap in {
+        c1.init(1);
+        c2.init(2);
+        swap1.init();
+        swap2.init();
+        // w/o sync in swap, we get all possible results: 2,1/1,2/1,1/2,2
+        par {
+          swap1.swap(c1, c2);
+          swap2.swap(c2, c1);
+        }
+      }
+
+
+

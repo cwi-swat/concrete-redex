@@ -46,6 +46,8 @@ Prog txProgSync() = parse(#start[Prog], |project://concrete-redex/src/paper/mure
 
 Prog timProg() = parse(#start[Prog], |project://concrete-redex/src/paper/murebel/tim.mrbl|).top;
 
+Prog swapProg() = parse(#start[Prog], |project://concrete-redex/src/paper/murebel/swap.mrbl|).top;
+
 default CR red(str _, Spec _, C _, Tree t) = {};
 
 // TODO: 

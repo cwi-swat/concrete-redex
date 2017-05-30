@@ -39,7 +39,7 @@ RW reachable(Stmt stmt, Store s, Spec spec) {
       result.reads += reads(e, s);
 
     case (Stmt)`let <Id x> = <Expr e> in <Stmt b>`: { 
-      <rs, ws> = reachable(subst((Expr)`<Id x>`, e, b), s, spec);
+      <rs, ws> = reachable(subst(((Expr)`<Id x>`: e), b), s, spec);
       result.reads += rs;
       result.writes += ws;
     }
