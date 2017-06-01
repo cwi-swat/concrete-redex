@@ -17,13 +17,14 @@ alias CR = rel[Tree context, Tree reduct]; // context reduct pairs
 
 RR apply(type[&C<:Tree] ct, type[&T<:Tree] tt, CR(str,&C, Tree) red, Tree t, set[str] rules)
   = { <r, typeCast(#Tree, plug(tt, ctx2, rt))> |
-    bprintln("STARTING REDUCTION"),  
+    //bprintln("STARTING REDUCTION"),  
      <&C ctx1, Tree rx> <- split(ct, t),
+    //bprintln("ctx = <ctx1>"),
     //bprintln("redex = <rx>"),
      str r <- rules,
-     //bprintln("RULE: <r>"), 
+     //bprintln("RULE: <r>"),
      <&C ctx2, Tree rt> <- red(r, ctx1, rx)
-     , bprintln("<rx> === <r> ===\> <rt>")
+     //, bprintln("<rx> === <r> ===\> <rt>")
       };
 
 
@@ -82,16 +83,8 @@ rel[Tree,Tree] split(type[&T<:Tree] ctxType, Tree t) {
     flattenAmbs(ctx, (Tree alt, Tree redex) {
       // could we do the reductions here, without flattening it all?
       // (a kind of deforestation)
-      if (alt is hole) {
-        toplevels += {<alt, redex>};
-      }
-      else {
-        result += {<alt, redex>};
-      } 
+      result += {<alt, redex>};
     });
-    if (result == {}) { // only add toplevels is no more nested stuff needs to be done;
-      result += toplevels;
-    }
     return result;
   }
   catch ParseError(loc _): {
@@ -100,11 +93,36 @@ rel[Tree,Tree] split(type[&T<:Tree] ctxType, Tree t) {
   }
 }
 
+str getSort(label(_, sort(str name))) = name; 
+str getSort(sort(str name)) = name; 
+default str getSort(Symbol _) = "";
+
+bool isContext(Tree t) = /^[A-Z]$/ := getSort(t.prod.def) || t is hole;
+
+// log(n) plug function (not using visit).
+Tree plug2(Tree ctx, Tree reduct) {
+  assert isContext(ctx) : "plug not traversing context <ctx>";
+
+  if (ctx is hole) {
+    return reduct;
+  }
+  // for now, use capital single letter as convention
+  if (appl(Production p, list[Tree] args) := ctx, int i <- [0..size(args)]
+      //, bprintln("looking for context at <i>: <args[i]> (sym = <args[i].prod.def>)")
+      , isContext(args[i])) {
+    //println("Found it at <i>: <args[i]>");
+    return appl(p, args[0..i] + [plug2(args[i], reduct)] + args[i+1..])[@\loc=ctx@\loc];
+  }
+  
+  assert false:  "no hole found: <ctx>";
+}
+
 @doc{Plug reduct back into context, turning it into a term}
 &T plug(type[&T<:Tree] tt, Tree ctx, Tree reduct) {
-  Tree t = visit (ctx) {
-    case Tree h => reduct when h is hole
-  };
+  //Tree t = bottom-up-break visit (ctx) {
+  //  case Tree h => reduct when h is hole
+  //};
+  Tree t = plug2(ctx, reduct);
   return parse(tt, "<t>");
 }
 
@@ -113,37 +131,6 @@ private Tree makeHole(Symbol sym, loc l)
       appl(prod(lit("☐"),[\char-class([range(9744,9744)])],{}),[char(9744)])])[@\loc=l];
  
 
-//private void flattenAmbs2(Tree t, void(Tree,Tree, Tree(Tree, Tree)) k) {
-//  if (t is hole) { //label(str name, _) := t.prod.def, /hole<named:[a-zA-Z0-9]*>/ := name) {
-//    // generate plug function here too.
-//    k(makeHole(t.prod.def, t@\loc), t.args[0], Tree(Tree ctx, Tree p) { return p; });
-//    //k(makeHole(t.prod.def, t@\loc), t.args[0]); 
-//    return;
-//  }
-//  
-//  switch (t) {
-//    case appl(Production p, list[Tree] args): {
-//      for (int i <- [0..size(args)]) {
-//        flattenAmbs2(args[i], (Tree ctx, Tree redex, Tree(Tree, Tree) plug) {
-//           k(appl(p, args[0..i] + [ctx] + args[i+1..])[@\loc=t@\loc], redex, Tree(Tree myctx, Tree rt) {
-//             return appl(p, myctx.args[0..i] + plug(args[i], rt) + myctx.args[i+1..])[@\loc=t@\loc];
-//           });
-//        });
-//      }
-//    }
-//    
-//    case amb(set[Tree] alts): {
-//      for (Tree a <- alts) {
-//        flattenAmbs2(a, (Tree ctx, Tree redex, Tree(Tree, Tree) plug) {
-//          k(ctx, redex, plug);
-//        });
-//      } 
-//    }
-//  }
-//  
-//}
-
- 
 private void flattenAmbs(Tree t, void(Tree,Tree) k) {
   if (t is hole) { //label(str name, _) := t.prod.def, /hole<named:[a-zA-Z0-9]*>/ := name) {
     // generate plug function here too.
