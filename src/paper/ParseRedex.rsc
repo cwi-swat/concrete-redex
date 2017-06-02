@@ -17,14 +17,14 @@ alias CR = rel[Tree context, Tree reduct]; // context reduct pairs
 
 RR apply(type[&C<:Tree] ct, type[&T<:Tree] tt, CR(str,&C, Tree) red, Tree t, set[str] rules)
   = { <r, typeCast(#Tree, plug(tt, ctx2, rt))> |
-    //bprintln("STARTING REDUCTION"),  
+    bprintln("STARTING REDUCTION"),  
      <&C ctx1, Tree rx> <- split(ct, t),
-    //bprintln("ctx = <ctx1>"),
-    //bprintln("redex = <rx>"),
+    bprintln("ctx = <ctx1>"),
+    bprintln("redex = <rx>"),
      str r <- rules,
      //bprintln("RULE: <r>"),
      <&C ctx2, Tree rt> <- red(r, ctx1, rx)
-     //, bprintln("<rx> === <r> ===\> <rt>")
+     , bprintln("<rx> === <r> ===\> <rt>")
       };
 
 
@@ -77,15 +77,20 @@ rel[Tree,Tree] split(type[&T<:Tree] ctxType, Tree t) {
   try {
     ctx = parse(ctxType, "<t>", t@\loc, allowAmbiguity=true);
   
-    rel[Tree,Tree] toplevels = {};
-    
-    rel[Tree, Tree] result = {};
-    flattenAmbs(ctx, (Tree alt, Tree redex) {
+    rel[int, Tree, Tree] result = {};
+    int maxDepth = -1;
+    flattenAmbs(ctx, 0, (int depth, Tree alt, Tree redex) {
       // could we do the reductions here, without flattening it all?
       // (a kind of deforestation)
-      result += {<alt, redex>};
+      //println("DEPTH: <depth>");
+      if (depth >= maxDepth) {
+        maxDepth = depth;
+      }
+      result += {<depth, alt, redex>};
     });
-    return result;
+    
+    return { <c, trm> | <_, Tree c, Tree trm> <- result };
+    
   }
   catch ParseError(loc _): {
     // stuck
@@ -130,12 +135,17 @@ private Tree makeHole(Symbol sym, loc l)
   = appl(prod(label("hole", sym),[lit("☐")],{}),[
       appl(prod(lit("☐"),[\char-class([range(9744,9744)])],{}),[char(9744)])])[@\loc=l];
  
+bool allSameProd(set[Tree] ts) {
+  if (ts == {}) return true;
+  p = getOneFrom(ts).prod;
+  return ( true | it && t.prod == p | t <- ts );
+}
 
-private void flattenAmbs(Tree t, void(Tree,Tree) k) {
+private void flattenAmbs(Tree t, int depth, void(int, Tree,Tree) k) {
   if (t is hole) { //label(str name, _) := t.prod.def, /hole<named:[a-zA-Z0-9]*>/ := name) {
     // generate plug function here too.
     //k(makeHole(t.prod.def, t@\loc), t.args[0], Tree(Tree p) { return p });
-    k(makeHole(t.prod.def, t@\loc), t.args[0]); 
+    k(depth, makeHole(t.prod.def, t@\loc), t.args[0]); 
     return;
   }
   
@@ -146,18 +156,23 @@ private void flattenAmbs(Tree t, void(Tree,Tree) k) {
         //k(appl(p, args[0..i] + [ctx] + args[i+1..])[@\loc=t@\loc], redex, Tree(Tree rt) {
         //   return appl(p, args[0..i] + plug(rt) + args[i+1..])[@\loc=t@\loc]
         // });
-        flattenAmbs(args[i], (Tree ctx, Tree redex) {
-          k(appl(p, args[0..i] + [ctx] + args[i+1..])[@\loc=t@\loc], redex); 
+        flattenAmbs(args[i], depth + 1, (int d, Tree ctx, Tree redex) {
+          k(d, appl(p, args[0..i] + [ctx] + args[i+1..])[@\loc=t@\loc], redex); 
         });
       }
     }
     
     case amb(set[Tree] alts): {
-      for (Tree a <- alts) {
-        flattenAmbs(a, (Tree ctx, Tree redex) {
-          k(ctx, redex);
-        });
-      } 
+      //for (a <- alts) {
+      //  println(a.prod);
+      //}
+      //if (allSameProd(alts)) {
+        for (Tree a <- alts, !(a is hole)) {
+          flattenAmbs(a, depth, (int d, Tree ctx, Tree redex) {
+            k(d, ctx, redex);
+          });
+        }
+      //} 
     }
   }
   
