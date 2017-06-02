@@ -49,10 +49,9 @@ syntax Formal
 syntax Stmt
   = block: "{" Stmt* "}"
   | \fail: "fail" ";"
-  | assign: Expr "." Id "=" Expr ";" // todo: restrict to "this.x"
+  | assign: Expr "." Id "=" Expr ";" 
   | ifThen: "if" "(" Expr ")" Stmt () !>> "else" 
   | ifThenElse: "if" "(" Expr ")" Stmt "else" Stmt 
-  | sync: "sync" Stmt
   | par: "par" Stmt 
   | skip: ";"
   | let: "let" Id "=" Expr "in" Stmt

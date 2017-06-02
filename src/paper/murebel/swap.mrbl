@@ -10,11 +10,14 @@ entity Swap {
   init on init(): ready;
   
   state ready on swap(c1: Cell, c2: Cell) 
-    sync let temp = c1.value in {
+      let temp = c1.value in {
       c1.value = c2.value;
       c2.value = temp;
     }
 }
+
+// the point of sync is thus to isolate different "actors" accessing the same
+// resources, from each other. As in this example, 2 swaps, trying to swap c1/c2.
 
 let c1 = new Cell in 
   let c2 = new Cell in 

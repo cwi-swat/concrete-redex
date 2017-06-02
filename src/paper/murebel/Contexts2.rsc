@@ -9,11 +9,9 @@ syntax C = Store store "," Locks locks "⊢" S stmt Stmt*;
 syntax S
   = hole: Stmt!skip!fail 
   | block: "{" S Stmt* "}"
+  | parBlock: "{|" Stmt* S Stmt* "|}"
   | E "." Id "=" Expr ";"
   | Value "." Id "=" E ";"
-  | "par" S!block
-  | "par" "{" Stmt* S Stmt* "}" // NB: only parallelism at par level, not below it. 
-  // NB * not + because of concrete syntax bug
   | "sync" "(" {LId ","}* ")" S // NB: don't go into sync S 
   | "onSuccess" "(" Ref "↦" Id ")" S
   | "let" Id "=" E "in" Stmt
@@ -32,13 +30,13 @@ syntax P
 
 syntax U // unary
   = U "." Id
-  | hole: Expr!not!mul!div!add!sub!gt!geq!lt!leq!eq!new!in!and!or
+  | hole: Expr!not!mul!div!add!sub!gt!geq!lt!leq!eq!new!in!and!or!value
   | P
   ; 
   
 syntax N // not
   = "!" E
-  | hole: Expr!mul!div!add!sub!gt!geq!lt!leq!eq!new!in!and!or
+  | hole: Expr!mul!div!add!sub!gt!geq!lt!leq!eq!new!in!and!or!value
   | U!hole
   ;
    
@@ -47,7 +45,7 @@ syntax F // factor
   | Value "*" F
   | F "/" Expr
   | Value "/" F
-  | hole: Expr!add!sub!gt!geq!lt!leq!eq!new!in!and!or
+  | hole: Expr!add!sub!gt!geq!lt!leq!eq!new!in!and!or!value
   | N!hole
   ;
   
@@ -56,11 +54,11 @@ syntax T // term
   | Value "-" T
   | T "+" Expr
   | Value "+" T
-  | hole: Expr!gt!geq!lt!leq!eq!new!in!and!or
+  | hole: Expr!gt!geq!lt!leq!eq!new!in!and!or!value
   | F!hole
   ;
 
-syntax E // relation
+syntax R // relation
   = T "\>" Expr
   | Value "\>" T
   | T "\>=" Expr 
@@ -74,10 +72,16 @@ syntax E // relation
   | T "!=" Expr
   | Value "!=" T
   | T "in" Id
-  | hole: Expr
+  | hole: Expr!value!or!and
   | T!hole
   ; 
 
+syntax E
+  = R "&&" Expr
+  | R "||" Expr
+  | hole: Expr!value
+  | R!hole
+  ;
 
 int arity({Expr ","}* es) = size([ e | Expr e <- es ]);
 int arity({Formal ","}* fs) = size([ f | Formal f <- fs ]);

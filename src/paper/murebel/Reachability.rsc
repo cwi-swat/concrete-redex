@@ -3,6 +3,7 @@ module paper::murebel::Reachability
 import paper::murebel::Contexts2;
 import util::Maybe;
 import ParseTree;
+import IO;
 
 
 @doc{Find the immediately enclosing sync block around the hole.}
@@ -29,6 +30,67 @@ Maybe[S] innerMostSync(S ctx, Maybe[S] sync) {
 
 alias RW = tuple[set[Ref] reads, set[Ref] writes];
 
+Expr conj((Expr)`true`, Expr e) = e;
+
+Expr conj(Expr e, (Expr)`true`) = e;
+
+default Expr conj(Expr e1, Expr e2) = (Expr)`<Expr e1> && <Expr e2>`;
+
+
+Stmt seq((Stmt)`{<Stmt* ss1>}`, (Stmt)`{<Stmt* ss2>}`) 
+  = (Stmt)`{<Stmt* ss1> <Stmt* ss2>}`;
+
+Stmt seq(Stmt s1, (Stmt)`{<Stmt* ss2>}`) 
+  = (Stmt)`{<Stmt s1> <Stmt* ss2>}`
+  when !(s1 is block);
+
+Stmt seq((Stmt)`{<Stmt* ss1>}`, Stmt s2) 
+  = (Stmt)`{<Stmt* ss1> <Stmt s2>}`
+  when !(s2 is block);
+
+Stmt seq((Stmt)`;`, Stmt s) = s;
+Stmt seq(Stmt s, (Stmt)`;`) = s;
+
+default Stmt seq(Stmt s1, Stmt s2) = (Stmt)`{<Stmt s1> <Stmt s2>}`;
+
+tuple[Expr, Stmt] flatten(Ref r, Id x, {Expr ","}* args, Store s, Spec spec) {
+  Obj obj = lookup(s, r);
+  St cur = obj.state;
+  Entity ent = lookupEntity(spec, obj.class);
+  println("ENTITY: <ent>");
+  println("CUR: <cur>");
+  State st = lookupState(ent, cur);
+  Trans t = normalize(lookupTransition(st, x), cur);
+  {Formal ","}* fs = t.formals;
+  Id trg = getTarget(t);
+  map[Expr, Expr] sub = makeSubst(fs, args) + ((Expr)`this`: (Expr)`<Ref r>`);
+  Stmt body = subst(sub, t.body);
+  <pre0, stmt> = flatten(body, s, spec);
+  Expr pre = subst(sub, getPre(t));
+  return <conj(pre0, pre), seq(stmt, (Stmt)`<Ref r> goes to <Id trg>;`)>;  
+}
+
+tuple[Expr, Stmt] flatten((Stmt)`<Ref r>.<Id x>(<{Expr ","}* args>);`, Store s, Spec spec) 
+  = flatten(r, x, args, s, spec);
+
+tuple[Expr, Stmt] flatten((Stmt)`let <Id x> = <Expr e> in <Stmt b>`, Store s, Spec spec) 
+  = <pre, (Stmt)`let <Id x> = <Expr e> in <Stmt body>`>
+  when <pre, body> := flatten(b, s, spec);
+
+tuple[Expr, Stmt] flatten((Stmt)`{<Stmt* ss>}`, Store s, Spec spec) {
+  res = <(Expr)`true`, (Stmt)`;`>;
+  for (Stmt stmt <- ss) {
+    <pre, body> = flatten(stmt, s, spec);
+    res[0] = conj(res[0], pre); 
+    res[1] = seq(res[1], body);
+  }
+  return res;
+} 
+
+default tuple[Expr, Stmt] flatten(Stmt stmt, Store s, Spec spec)
+  = <(Expr)`true`, stmt>;
+
+
 @doc{Do an abstract interpretation of stmt to find which references
 are read from and which ones are modified.}
 RW reachable(Stmt stmt, Store s, Spec spec) {
@@ -38,36 +100,6 @@ RW reachable(Stmt stmt, Store s, Spec spec) {
     case Expr e: 
       result.reads += reads(e, s);
 
-    case (Stmt)`let <Id x> = <Expr e> in <Stmt b>`: { 
-      <rs, ws> = reachable(subst(((Expr)`<Id x>`: e), b), s, spec);
-      result.reads += rs;
-      result.writes += ws;
-    }
-    
-
-    case (Stmt)`<Expr e>.<Id x>(<{Expr ","}* args>);`: {
-      result.reads += reads(e, s);
-      if (just(Ref r) := eval(e, s)) { 
-       result.writes += {r};
-       Obj obj = lookup(s, r);
-        St cur = obj.state;
-        Entity ent = lookupEntity(spec, obj.class);
-        State st = lookupState(ent, cur);
-        if (hasTransition(st, x)) {
-          Trans t = normalize(lookupTransition(st, x), cur);
-          {Formal ","}* fs = t.formals;
-          if (arity(fs) == arity(args)) {
-            Id trg = getTarget(t);
-            map[Expr, Expr] sub = makeSubst(fs, args) + ((Expr)`this`: (Expr)`<Ref r>`);
-            Stmt body = subst(sub, t.body);
-            <rs, ws> = reachable(body, s, spec);
-            result.reads += rs;
-            result.writes += ws;
-          }
-       }
-     }
-    } 
-    
     case (Stmt)`<Expr e>.<Id x> = <Expr a>;`: {
        result.writes += { r | just(Ref r) := eval(e, s) };
        result.reads += reads(e, s) + reads(a, s);

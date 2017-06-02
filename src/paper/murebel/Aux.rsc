@@ -27,11 +27,21 @@ syntax Locks = Lock* locks;
 syntax Refs = Ref* refs;
 
 syntax Stmt  
-  = onSuccess: "onSuccess" "(" Ref "↦" Id ")" Stmt 
+  = goesTo: Ref "goes" "to" Id ";" 
   | syncLock: "sync" "(" LIds")" Stmt
+  | parBlock: "{|" Stmt* "|}"
   ;
   
 syntax LIds = {LId ","}* ;
+
+
+bool terminated(Stmt s) = s is skip || s is \fail;
+
+bool allTerminated(Stmt* ss) = ( true | it && terminated(s) | Stmt s <- ss );
+
+bool isValue(Expr e) = (Expr)`<Value _>` := e;
+
+bool allValue({Expr ","}* es) = ( true | it && isValue(e) | Expr e <- es );
 
 int arity({Expr ","}* es) = size([ e | Expr e <- es ]);
 int arity({Formal ","}* fs) = size([ f | Formal f <- fs ]);

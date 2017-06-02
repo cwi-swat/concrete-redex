@@ -3,7 +3,7 @@ module paper::murebel::Semantics
 import paper::murebel::Reachability; 
 extend paper::murebel::Contexts2; 
 extend paper::ParseRedex; 
-//extend paper::murebel::Aux; 
+import paper::murebel::Aux; 
 import String;
 import ParseTree;
 import List;
@@ -14,7 +14,8 @@ import util::Maybe;
 set[str] muRebel() = {"noOpSeq", "seqFail", "onFail", "onSuccess", "ifT", "ifF", "if",
   "assign", "let", "this", "trigger", "sync", "syncFail", "syncSuccess",
   "field", "new", "add", "sub", "mul", "div", "gt", "lt", "geq", "leq",
-  "eq", "neq", "and", "or", "not", "emptySeq", "noOpPar", "parFail", "inState", "bracket"};
+  "eq", "neq", "and", "or", "not", "emptySeq", "inState", "bracket",
+  "*noOpSeq", "*seqFail", "*emptySeq", "parBlock"};
 
 TR traceProg(Prog p) {
   RR myApply(Conf c) = apply(#C, #Conf, CR(str n, C ctx, Tree t) {
@@ -48,6 +49,12 @@ Prog timProg() = parse(#start[Prog], |project://concrete-redex/src/paper/murebel
 
 Prog swapProg() = parse(#start[Prog], |project://concrete-redex/src/paper/murebel/swap.mrbl|).top;
 
+Prog doorsProg() = parse(#start[Prog], |project://concrete-redex/src/paper/murebel/doors.mrbl|).top;
+
+Prog withdrawProg() = parse(#start[Prog], |project://concrete-redex/src/paper/murebel/withdraw.mrbl|).top;
+
+Prog janProg() = parse(#start[Prog], |project://concrete-redex/src/paper/murebel/jan.mrbl|).top;
+
 default CR red(str _, Spec _, C _, Tree t) = {};
 
 // TODO: 
@@ -58,28 +65,26 @@ default CR red(str _, Spec _, C _, Tree t) = {};
 CR red("noOpSeq", Spec spec, C c, (Stmt)`{; <Stmt* ss>}`)
   = {<c, (Stmt)`{<Stmt* ss>}`>};
 
-CR red("emptySeq", Spec spec, C c, (Stmt)`{}`)
-  = {<c, (Stmt)`;`>};
-
 CR red("seqFail", Spec spec, C c, (Stmt)`{fail; <Stmt* s>}`)
   = {<c, (Stmt)`fail;`>};
 
-//CR red("noOpParSeq", Spec spec, C c, (Stmt)`par {; <Stmt* ss1>}`)
-//  = {<c, (Stmt)`par {<Stmt* ss1>}`>};
-//  
-//CR red("parFailSeq", Spec spec, C c, (Stmt)`par {fail; <Stmt* ss2>}`)
-//  = {<c, (Stmt)`fail;`>};
-
-CR red("noOpPar", Spec spec, C c, (Stmt)`par ;`)
+CR red("emptySeq", Spec spec, C c, (Stmt)`{}`)
   = {<c, (Stmt)`;`>};
-  
-CR red("parFail", Spec spec, C c, (Stmt)`par fail;`)
-  = {<c, (Stmt)`fail;`>};
 
-CR red("onFail", Spec spec, C c, (Stmt)`onSuccess (<Ref _> ↦ <Id _>) fail;`)
-  = {<c, (Stmt)`fail;`>};
-  
-CR red("onSuccess", Spec spec, C c, (Stmt)`onSuccess (<Ref r> ↦ <Id x>) ;`)
+CR red("*noOpSeq", Spec spec, C c, (Stmt)`{|<Stmt* s1> ; <Stmt* s2>|}`)
+  = {<c, (Stmt)`{|<Stmt* s1> <Stmt* s2>|}`>};
+
+CR red("*seqFail", Spec spec, C c, (Stmt)`{|<Stmt* s1> fail; <Stmt* s2>|}`)
+  = {<c, (Stmt)`fail;`>}
+  when allTerminated(s1), allTerminated(s2);
+
+CR red("*emptySeq", Spec spec, C c, (Stmt)`{| |}`)
+  = {<c, (Stmt)`;`>};
+
+CR red("parBlock", Spec spec, C c, (Stmt)`par {<Stmt* s>}`)
+  = {<c, (Stmt)`{|<Stmt* s>|}`>};
+
+CR red("onSuccess", Spec spec, C c, (Stmt)`<Ref r> goes to <Id x>;`)
   = {<c[store=s2], (Stmt)`;`>}
   when // on success is always below a sync from a transition, so we can modify it here.
     Obj obj1 := lookup(c.store, r),
@@ -94,7 +99,7 @@ CR red("ifF", Spec spec, C c, (Stmt)`if (<Value v>) <Stmt s1> else <Stmt s2>`)
   when (Value)`true` !:= v;
   
 CR red("if", Spec spec, C c, (Stmt)`if (<Value v>) <Stmt s>`)
-  = {<c, (Stmt)`if (<Value v>) <Stmt s> else ;`>};
+  = {<c, (Stmt)`if (<Value v>) {<Stmt s>} else ;`>};
 
 CR red("assign", Spec spec, C c, rx:(Stmt)`<Ref r>.<Id x> = <Value v>;`)
   = {<c[store=s2], (Stmt)`;`>} 
@@ -110,46 +115,44 @@ CR red("let", Spec spec, C c, (Stmt)`let <Id x> = <Value v> in <Stmt s>`)
 
 @doc{Attempt to make a transition. This requires that the receiver reference is not locked
 for reading or writing by a lock not inherited from above.}
-CR red("trigger", Spec spec, C c, it_:(Stmt)`<Ref r>.<Id x>(<{Expr ","}* es>);`)
-  = {<c[locks=locks], (Stmt)`sync (<LId lock>, <{LId ","}* xs>) if (<Expr cond>) onSuccess(<Ref r> ↦ <Id trg>) <Stmt body> else fail;`>}
+CR red("trigger", Spec spec, C c, rx:(Stmt)`<Ref r>.<Id x>(<{Expr ","}* es>);`)
+  // NB the curlies; else might move around otherwise.
+  = {<c[locks=locks], (Stmt)`sync (<LId lock>) {if (<Expr pre>) {<Stmt body>} else fail;}`>}
   when allValue(es),
-    {LId ","}* xs := enclosingLocks(c, it_),
-    !isLocked(c, r, it_), // otherwise, we can't acquire the lock
-    Obj obj := lookup(c.store, r),
-    St cur := obj.state,
-    Entity e := lookupEntity(spec, obj.class),
-    State st := lookupState(e, cur),
-    hasTransition(st, x),
-    Trans t := normalize(lookupTransition(st, x), cur),
-    {Formal ","}* fs := t.formals,
-    arity(fs) == arity(es),
-    Id trg := getTarget(t),
-    map[Expr, Expr] sub := makeSubst(fs, es) + ((Expr)`this`: (Expr)`<Ref r>`),
-    Expr cond := subst(sub, getPre(t)),
-    Stmt body := subst(sub, t.body),
-    LId lock := newLock(c.locks),
-    Locks locks := addLock(c.locks, (Lock)`<LId lock> {<Obj obj> | <Obj obj>}`);
-
-CR red("sync", Spec spec, C c, rx:(Stmt)`sync <Stmt s>`)
-  = {<c[locks=locks2], (Stmt)`sync (<LId lock>, <{LId ","}* xs>) <Stmt s>`>}
-  when 
-    LId lock := newLock(c.locks),
-    <set[Ref] reads, set[Ref] writes> := reachable(s, c.store, spec),
+    !isLocked(c, r, rx), // otherwise, we can't acquire the lock
+    <pre, body> := flatten(r, x, es, c.store, spec),
     
-    {LId ","}* xs := enclosingLocks(c, rx),
-    //set[Ref] allReads := reads + { obj.ref | Id x <- xs, Lock l := getLock(c.locks, x), Obj obj <- l.reads },
-    //set[Ref] allWrites := writes + { obj.ref | Id x <- xs, Lock l := getLock(c.locks, x), Obj obj <- l.writes },
+    <set[Ref] reads, set[Ref] writes> := reachable(body, c.store, spec),
     
-    // do we need to check this on allReads/Writes? The inherited refs are already protected.
-    // and fail propagates always upwards 
+    
     ( true | it && !isWriteLocked(c, r, rx) | Ref r <- reads ),
     ( true | it && !isLocked(c, r, rx) | Ref r <- writes ),
 
     list[Obj] readObjs := [ obj | Obj obj <- c.store.objs, obj.ref in reads ],
     list[Obj] writeObjs := [ obj | Obj obj <- c.store.objs, obj.ref in writes ],
     
+    LId lock := newLock(c.locks),
     Lock theLock := makeLock(lock, readObjs, writeObjs),
-    Locks locks2 := addLock(c.locks, theLock);
+    Locks locks := addLock(c.locks, theLock);
+
+
+
+//CR red("sync", Spec spec, C c, rx:(Stmt)`sync <Stmt s>`)
+//  = {<c[locks=locks2], (Stmt)`sync (<LId lock>, <{LId ","}* xs>) {<Stmt s>}`>}
+//  when 
+//    LId lock := newLock(c.locks),
+//    <set[Ref] reads, set[Ref] writes> := reachable(s, c.store, spec),
+//    
+//    {LId ","}* xs := enclosingLocks(c, rx),
+//
+//    ( true | it && !isWriteLocked(c, r, rx) | Ref r <- reads ),
+//    ( true | it && !isLocked(c, r, rx) | Ref r <- writes ),
+//
+//    list[Obj] readObjs := [ obj | Obj obj <- c.store.objs, obj.ref in reads ],
+//    list[Obj] writeObjs := [ obj | Obj obj <- c.store.objs, obj.ref in writes ],
+//    
+//    Lock theLock := makeLock(lock, readObjs, writeObjs),
+//    Locks locks2 := addLock(c.locks, theLock);
     
 
 @doc{When fail ends up in a sync, we have to restore any objects referenced in the write locks
@@ -159,14 +162,23 @@ CR red("syncFail", Spec spec, C c, (Stmt)`sync (<LId x>, <{LId ","}* _>) fail;`)
   when
     Lock lock := getLock(c.locks, x), 
     Locks locks2 := deleteLock(c.locks, x),
+    checkNoLock(locks2, x),
     Store s2 := ( c.store | update(it, obj) | obj <- lock.writes );
+    
+bool checkNoLock(Locks locks, LId x) {
+  if (Lock l <- locks.locks, l.id == x) {
+    throw "Lock not <x> removed! <locks>";
+  } 
+  return true;
+}     
     
 @doc{Success simply means that the we can discard the lock and continue. The store
 actually represents the desired state.}    
 CR red("syncSuccess", Spec spec, C c, (Stmt)`sync (<LId x>, <{LId ","}* _>) ;`)
   = {<c[locks=locks], (Stmt)`;`>}
   when
-    Locks locks := deleteLock(c.locks, x);
+    Locks locks := deleteLock(c.locks, x),
+    checkNoLock(locks, x);
 
 
 /*
@@ -200,7 +212,7 @@ bool isLocked(C c, Ref r, Tree rx) = isWriteLockedExcept(c.locks, r, except) || 
  */
 
 CR red("inState", Spec spec, C c, rx:(Expr)`<Ref r> in <Id x>`)
- = {<c, (St)`<Id x>` := lookup(c.store, r).state ? (Expr)`true` : (Expr)`false`>}
+ = {<c, (St)`<Id y>` := lookup(c.store, r).state && x == y ? (Expr)`true` : (Expr)`false`>}
  when !isWriteLocked(c, r, rx); 
  
 
@@ -218,7 +230,7 @@ CR red("new", Spec spec, C c, (Expr)`new <Id x>`)
     list[int] ns := [ toInt(obj.ref.ptr) | Obj obj <- c.store.objs ],
     int n := ((ns == []) ? 0 : 1 + max(ns)),
     Num ptr := [Num]"<n>",
-    Store s2 := addObj(c.store, (Obj)`#<Num ptr> : <Id x> [⊥] { }`);
+    Store s2 := addObj(c.store, (Obj)`#<Num ptr>: <Id x> [⊥] { }`);
 
 CR red("add", Spec spec, C c, (Expr)`<Num i1> + <Num i2>`) 
   = {<c, intExpr(toInt(i1) + toInt(i2))>}; 
@@ -251,10 +263,10 @@ CR red("neq", Spec spec, C c, (Expr)`<Value v1> != <Value v2>`)
   = {<c, boolExpr(v1 != v2)>}; 
 
 CR red("and", Spec spec, C c, (Expr)`<Bool b> && <Expr e>`) 
-  = {<c, (Bool)`true` ? e : boolExpr(false)>}; 
+  = {<c, (Bool)`true` := b ? e : boolExpr(false)>}; 
 
 CR red("or", Spec spec, C c, (Expr)`<Bool b> || <Expr e>`) 
-  = {<c, (Bool)`false` ? e : boolExpr(true)>}; 
+  = {<c, (Bool)`false` := b ? e : boolExpr(true)>}; 
 
 CR red("not", Spec spec, C c, (Expr)`!<Bool b>`) 
   = {<c, boolExpr(b != (Bool)`true`)>};   

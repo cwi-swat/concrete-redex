@@ -12,11 +12,18 @@ entity Foo {
   state ready {}
 }
 
+entity Main {
+  init on init(a: Foo, b: Foo): done par {
+    a.init(b);
+    b.init(a);
+  }
+  
+  final done;
+}
+
 let a = new Foo in
   let b = new Foo in {
-    sync par {
-        a.init(b);
-        b.init(a);
-      }  
+    let m = new Main in
+      m.init(a, b);  
  }
 

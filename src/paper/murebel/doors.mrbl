@@ -1,0 +1,27 @@
+
+
+entity Door {
+  other: Door
+
+  init on init(d: Door): closed this.other = d;
+  
+  state closed 
+    on open(): opened
+      if (this.other in opened) 
+        this.other.close();
+
+  state opened 
+    on close(): closed; 
+  
+}
+
+let d1 = new Door in
+  let d2 = new Door in {
+    d1.init(d2);
+    d2.init(d1);
+    par {
+      d1.open();
+      d2.open();
+    }
+  }
+  

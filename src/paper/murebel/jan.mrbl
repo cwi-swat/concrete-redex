@@ -1,0 +1,56 @@
+
+
+entity Person {
+  going: bool
+
+  init
+    on init(): atHome this.going = false;
+
+  state atHome {
+    on go(): retreat require this.going;
+   
+    on lies(b: bool) {
+      if (b) {
+        this.going = true;
+      }
+    }
+  }
+  
+  final retreat;
+
+}
+
+
+entity Gaiarosa {
+  jan: Person
+  heleen: Person
+  
+  init
+    on init(j: Person, h: Person): hinduGoddess {
+      this.jan = j;
+      this.heleen = h;
+    }
+    
+  state hinduGoddess 
+    on lie(b: bool): twins {
+      this.jan.lies(b);
+      this.heleen.lies(b);
+    }
+    
+  final twins;
+}
+
+let g = new Gaiarosa in
+  let j = new Person in
+    let h = new Person in {
+      j.init();
+      h.init();
+      g.init(j, h);
+      par {
+        g.lie(true);
+        j.go();
+        h.go();
+      }
+    } 
+     
+       
