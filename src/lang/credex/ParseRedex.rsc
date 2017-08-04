@@ -1,4 +1,4 @@
-module paper::ParseRedex
+module lang::credex::ParseRedex
 
 import ParseTree;
 import List;
@@ -6,7 +6,7 @@ import Set;
 import Type;
 import IO;
 
-extend paper::TraceRedex;
+extend lang::credex::TraceRedex;
 
 
 /*

@@ -1,8 +1,8 @@
-module paper::lambda::base::CallByNeed
+module lang::credex::demo::lambda::CallByNeed
 
-import paper::lambda::base::Syntax;
-import paper::lambda::base::Resolve;
-extend paper::ParseRedex; // extend because parse bug
+import lang::credex::demo::lambda::Syntax;
+import lang::credex::demo::lambda::Resolve;
+extend lang::credex::ParseRedex; // extend because parse bug
 import String;
 
 

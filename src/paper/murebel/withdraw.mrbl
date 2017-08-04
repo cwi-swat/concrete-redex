@@ -31,10 +31,8 @@ entity Trans {
     
   state ready {
     on book(): booked {
-      sync {
-        this.from.withdraw(this.amount);
-        this.to.deposit(this.amount);
-      }
+      this.from.withdraw(this.amount);
+      this.to.deposit(this.amount);
     }
   }
     

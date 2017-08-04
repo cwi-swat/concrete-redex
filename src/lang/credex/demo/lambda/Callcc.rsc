@@ -1,9 +1,9 @@
-module paper::lambda::base::Callcc
+module lang::credex::demo::lambda::Callcc
 
-extend paper::lambda::base::Syntax;
-import paper::lambda::base::Resolve;
-extend paper::lambda::base::Semantics; 
-import paper::Substitution;
+extend lang::credex::demo::lambda::Syntax;
+import lang::credex::demo::lambda::Resolve;
+extend lang::credex::demo::lambda::Semantics; 
+import lang::credex::Substitution;
 
 syntax Value = "call/cc";
 

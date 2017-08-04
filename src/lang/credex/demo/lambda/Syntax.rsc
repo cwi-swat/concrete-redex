@@ -1,4 +1,4 @@
-module paper::lambda::base::Syntax
+module lang::credex::demo::lambda::Syntax
 
 extend lang::std::Layout;
 extend lang::std::Id;

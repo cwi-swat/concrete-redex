@@ -75,14 +75,16 @@ syntax EPrime
   
 syntax E  
   = EPrime
+  | F
+  | G
   | "try" E "catch" Id Expr 
   | "try" E "finally" Expr 
   | "label" ":" Id E
   | "break" Id E
-  // added to make parseable
-  | "try" F "finally" Expr
-  | "try" G "finally" Expr
-  | "label" ":" Id G
+  //// added to make parseable
+  //| "try" F "finally" Expr
+  //| "try" G "finally" Expr
+  //| "label" ":" Id G
   ;
   
 syntax F

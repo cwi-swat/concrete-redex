@@ -1,7 +1,7 @@
 Manifest-Version: 1.0
 Bundle-ManifestVersion: 2
-Bundle-Name: EvalCtx
-Bundle-SymbolicName: EvalCtx
+Bundle-Name: ConcreteRedex
+Bundle-SymbolicName: ConcreteRedex
 Bundle-Version: 1.0.0
 Require-Bundle: rascal_eclipse,
  Salix;bundle-version="1.0.0"

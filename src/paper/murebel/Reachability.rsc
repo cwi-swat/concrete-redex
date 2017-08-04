@@ -57,8 +57,8 @@ tuple[Expr, Stmt] flatten(Ref r, Id x, {Expr ","}* args, Store s, Spec spec) {
   Obj obj = lookup(s, r);
   St cur = obj.state;
   Entity ent = lookupEntity(spec, obj.class);
-  println("ENTITY: <ent>");
-  println("CUR: <cur>");
+  //println("ENTITY: <ent>");
+  //println("CUR: <cur>");
   State st = lookupState(ent, cur);
   Trans t = normalize(lookupTransition(st, x), cur);
   {Formal ","}* fs = t.formals;

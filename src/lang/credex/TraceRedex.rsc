@@ -1,4 +1,4 @@
-module paper::TraceRedex
+module lang::credex::TraceRedex
 
 import ParseTree;
 import IO;

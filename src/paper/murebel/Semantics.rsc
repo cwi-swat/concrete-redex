@@ -91,6 +91,14 @@ CR red("onSuccess", Spec spec, C c, (Stmt)`<Ref r> goes to <Id x>;`)
     Obj obj2 := gotoState(obj1, x),
     Store s2 := update(c.store, obj2);
 
+
+/*
+
+How we want to write it:
+CR red("ifT", Spec spec, #C c:[`if (true) <Stmt s1> else <Stmt s2>`])
+  = c[s1];
+
+*/
 CR red("ifT", Spec spec, C c, (Stmt)`if (true) <Stmt s1> else <Stmt s2>`)
   = {<c, s1>};  
 

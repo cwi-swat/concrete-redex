@@ -1,0 +1,55 @@
+
+
+context Expr[x] // should be data
+  = var(str)
+  | add(Expr, Expr)
+  | mul(Expr, Expr)
+  | lit(int)
+  ;
+
+context E[Expr]
+  = ☐
+  | apply(E, Expr)
+  | apply(Value, E)
+  ;
+  
+  
+context S[Stmt]
+  = seq([S, Stmt*])
+  | par([Stmt*, S, Stmt*])
+  ;
+
+// call by need
+
+
+context E[Expr] 
+  = ☐
+  | apply(plus1(), E)
+  | apply(E, Expr)
+  | apply(lambda(Id, E), Expr)
+  | apply(lambda(Id, E[Id]), E)
+  ;
+  
+ // call/comp
+ 
+context M[Expr]
+  = apply(M, Expr)
+  | apply(Value, M)
+  | ☐
+  ;
+   
+   
+context E[Expr]
+  = M
+  | E[prompt(M)]
+  ;
+  
+context C[Expr]
+  = C[apply(Id, ☐)]
+  | ☐
+  ;
+  
+context C[Expr]
+  = apply(Id, C)
+  | ☐
+  ;

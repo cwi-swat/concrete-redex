@@ -1,4 +1,4 @@
-module paper::Substitution
+module lang::credex::Substitution
 
 import ParseTree;
 import String;

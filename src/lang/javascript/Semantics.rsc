@@ -18,8 +18,15 @@ R red(str n, c:(C)`<Store s> <Heap h>; <E _>`, Expr e)
   // todo
   ;
 
-CR redECtrl("E-Finally-Error", E e:/tryFinally(F f:/(Expr)`err <Value v>`, Expr x))
-  = {<e, (Expr)`<Expr e>; err <Value v>`>};  
+CR redECtrl("E-Finally-Error", E c:/(E)`try <F f> finally <Expr e>`, r:(Expr)`err <Value v>`)
+  = {<c, (Expr)`<Expr e>; err <Value v>`>} 
+  when inHole(f, r); // is inHole needed? Or does it follow that redex is in f,
+    // because well-formedness of context grammar? Context sorts go to hole, always?
+
+
+CR redECtrl("E-Uncaught", c:(E)`<F f>`, r:(Expr)`err <Value v>`)
+  = {<c, (Expr)`err <Value v>`>};
+
 
 CR redECtrl("E-Uncaught", E e:inject(F f:/hole((Expr)`err <Value v>`)))
   = {<e, (Expr)`err <Value v>`>};  
