@@ -11,7 +11,6 @@ import IO;
  * - remove payload function
  * - support hybrid terms (so not just Tree, but also ADTs with maps etc.)
  * - fix uninject for lexicals... (classcast exception)
- * - store problem in plug
  * - not possible to put contexts into terms (e.g. for callcc).
  */
 

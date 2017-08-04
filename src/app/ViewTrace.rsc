@@ -14,7 +14,7 @@ import ParseTree;
 alias Model = tuple[rel[Tree,str,Tree] trace];
 
 App[Model] viewTrace(rel[Tree,str,Tree] trace)
-  = app(Model() { return <trace>; }, view, update, |http://localhost:7224|, |project://concrete-redex/src/app|);
+  = app(Model() { return <trace>; }, view, update, |http://localhost:7227|, |project://concrete-redex/src/app|);
 
 data Msg;
 
