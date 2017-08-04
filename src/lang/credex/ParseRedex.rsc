@@ -148,7 +148,7 @@ Tree plug2(Tree ctx, Tree reduct) {
   return myParse(tt, "<t>");
 }
 
-private Tree makeHole(Symbol sym, loc l) 
+Tree makeHole(Symbol sym, loc l) 
   = appl(prod(label("hole", sym),[lit("☐")],{}),[
       appl(prod(lit("☐"),[\char-class([range(9744,9744)])],{}),[char(9744)])])[@\loc=l];
  
