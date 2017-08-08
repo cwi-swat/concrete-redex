@@ -7,6 +7,11 @@ import IO;
 import List;
 import String;
 
+/*
+ * IMPORTANT: This is very experimental code an not maintained; use at your own risk.
+ */ 
+
+
 extend paper::TraceRedex;
 
 alias CR = rel[node context, Tree reduct];
