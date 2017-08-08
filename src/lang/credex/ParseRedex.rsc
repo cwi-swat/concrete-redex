@@ -34,7 +34,7 @@ rel[&C, Tree] warnIfNonUnique(rel[&C<:Tree, Tree] decomps) {
     println("WARNING: non unique decomposition");
     for (<&C ctx, Tree rx> <- decomps) {
       println("CTX: <ctx>");
-      println("RX: <rx>");
+      println("RDX: <rx>");
     }
   }
   return decomps;
@@ -54,21 +54,26 @@ rel[Tree,Tree] split(type[&T<:Tree] ctxType, Tree t) {
   // TODO: fix return type
   try {
     ctx = parse(ctxType, "<t>", t@\loc, allowAmbiguity=true);
-  
     rel[Tree, Tree] result = {};
     flattenAmbs(ctx, (Tree alt, Tree redex) {
       result += {<alt, redex>};
     });
     return result;
   }
-  catch ParseError(loc _): {
+  catch ParseError(loc l): {
     return {};  // stuck
   }
 }
 
+private bool isHole(Tree t) = \tag("hole"()) in t.prod.attributes 
+  when
+    t has prod, t.prod has attributes;
+
+private default bool isHole(Tree t) = false; 
+
 private void flattenAmbs(Tree t, void(Tree,Tree) k) {
-  if (t is hole) { 
-    k(makeHole(t.prod.def, t@\loc), t.args[0]); 
+  if (isHole(t)) { 
+    k(makeHole(t.prod.def, t@\loc), t); 
     return;
   }
   
@@ -93,7 +98,7 @@ private void flattenAmbs(Tree t, void(Tree,Tree) k) {
 
 @doc{Create a "fake" representation of a hole.}
 Tree makeHole(Symbol sym, loc l) 
-  = appl(prod(label("hole", sym),[lit("☐")],{}),[
+  = appl(prod(sym,[lit("☐")],{\tag("hole"())}),[
       appl(prod(lit("☐"),[\char-class([range(9744,9744)])],{}),[char(9744)])])[@\loc=l];
  
 
@@ -111,14 +116,14 @@ str getSort(sort(str name)) = name;
 default str getSort(Symbol _) = "";
 
 @doc{Determine if a Tree is a context}
-bool isContext(Tree t) = /^[A-Z]$/ := getSort(t.prod.def) || t is hole;
+bool isContext(Tree t) = /^[A-Z]$/ := getSort(t.prod.def) || isHole(t);
 
 @doc{Plugging the reduct back into a context (NB: *not* syntax safe).
 Handcoded, because visit it too slow.}
 Tree plugTree(Tree ctx, Tree reduct) {
   assert isContext(ctx) : "plug not traversing context <ctx>";
 
-  if (ctx is hole) {
+  if (isHole(ctx)) {
     return reduct;
   }
   if (appl(Production p, list[Tree] args) := ctx, int i <- [0..size(args)], isContext(args[i])) {
