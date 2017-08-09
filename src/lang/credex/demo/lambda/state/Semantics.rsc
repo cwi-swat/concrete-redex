@@ -1,7 +1,7 @@
 module lang::credex::demo::lambda::state::Semantics
 
-import lang::credex::demo::lambda::Semantics;
-import lang::credex::demo::lambda::state::Syntax;
+extend lang::credex::demo::lambda::Semantics;
+extend lang::credex::demo::lambda::state::Syntax;
 import lang::credex::demo::lambda::state::Resolve;
 
 extend lang::credex::ParseRedex; 
@@ -18,19 +18,23 @@ syntax IdValue = Id "↦" Value;
 
 syntax E // new expression evaluation contexts
   = "(" "let" "(" "(" Id E ")" ")" Expr ")"
-  | "(" "set!" Id E ")";
+  | "(" "set!" Id E ")"
+  | @hole Id \ Reserved
+  | @hole "(" "set!" Id Value ")"
+  | @hole "(" "let" "(" "(" Id Value ")" ")" Expr ")"
+  ;
 
 syntax C = Store store "⊢" E; 
   
-CR red("var", C c, (Expr)`<Id x>`)
+CR red("var", C c, (E)`<Id x>`)
   = {<c, (Expr)`<Value v>`>}
   when  isDefined(c.store, x), Value v := lookup(c.store, x);
 
-CR red("set", C c, (Expr)`(set! <Id x> <Value v>)`)
+CR red("set", C c, (E)`(set! <Id x> <Value v>)`)
   = {<c[store=s], (Expr)`<Value v>`>}
   when isDefined(c.store, x), Store s := update(c.store, x, v);
 
-CR red("let", C c, (Expr)`(let ((<Id x> <Value v>)) <Expr b>)`)
+CR red("let", C c, (E)`(let ((<Id x> <Value v>)) <Expr b>)`)
   = {<c[store=s], subst((Expr)`<Id x>`, (Expr)`<Id y>`, b)>}
   when 
     Id y := fresh(x, { var | /Id var := c.store }),

@@ -6,13 +6,10 @@ extend lang::credex::ParseRedex; // extend because parse bug
 import String;
 
 
-//syntax H
-//  = Value!num!add
-//  | Expr!var!val
-//  ;
-
 syntax E 
-  = hole: Expr!var
+  = @hole "(" Value!lam Value* ")" // same as before
+  | @hole "(" "(" "λ" "(" Id ")" Value ")" Expr ")"
+  | @hole "(" "(" "λ" "(" Id ")" Expr ")" Value ")"
   | "(" Value!lam* E Expr* ")" // NB: !lam, because lambdas can reduce
   | "(" "(" "λ" "(" Id ")" E ")" Expr ")"
   | "(" "(" "λ" "(" Id ")" Ex ")" E ")"
@@ -25,13 +22,13 @@ syntax Ex
   ;
 
   
-CR red("+", E e, (Expr)`(+ <Num n1> <Num n2>)`)
+CR red("+", E e, (E)`(+ <Num n1> <Num n2>)`)
   = {<e, [Expr]"<toInt(n1) + toInt(n2)>">};
 
-CR red("βv1", E e, (Expr)`((λ (<Id x>) <Value v>) <Expr _>)`)
+CR red("βv1", E e, (E)`((λ (<Id x>) <Value v>) <Expr _>)`)
   = {<e, (Expr)`<Value v>`>};
 
-CR red("βv2", E e, (Expr)`((λ (<Id x>) <Expr b>) <Value v>)`)
+CR red("βv2", E e, (E)`((λ (<Id x>) <Expr b>) <Value v>)`)
   = {<e, subst((Expr)`<Id x>`, (Expr)`<Value v>`, b)>};
 
 default CR red(str _, E _, Tree _) = {};

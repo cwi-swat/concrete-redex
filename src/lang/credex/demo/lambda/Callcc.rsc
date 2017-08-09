@@ -9,17 +9,11 @@ syntax Value = "call/cc";
 
 
 //  E[(call/cc v)] = E[(v (lambda (x) E[x]))]
-CR red("callcc", E e, (Expr)`(call/cc <Value v>)`)
+CR red("callcc", E e, (E)`(call/cc <Value v>)`)
   = {<e, (Expr)`(<Value v> (λ (<Id x>) <Expr cc>))`>}
   when
     Id x := fresh((Id)`x`, { x | /Id x := e }), 
     Expr cc := plug(#Expr, e, (Expr)`<Id x>`); 
-
-CR red("callcc", E e:/hole((Expr)`(call/cc <Value v>)`))
-  = {<e, (Expr)`(<Value v> (λ (<Id x>) <Expr cc>))`>}
-  when
-    Id x := fresh((Id)`x`, { x | /Id x := e }), 
-    Expr cc := plug(e, (Expr)`<Id x>`); 
 
 
 RR applyLambdaCallcc(Expr e) = apply(#E, #Expr, red, e, {"+", "βv", "callcc"});
