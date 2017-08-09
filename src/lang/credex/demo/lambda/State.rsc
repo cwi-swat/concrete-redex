@@ -1,13 +1,20 @@
-module lang::credex::demo::lambda::state::Semantics
+module lang::credex::demo::lambda::State
 
+extend lang::credex::demo::lambda::Syntax;
 extend lang::credex::demo::lambda::Semantics;
-extend lang::credex::demo::lambda::state::Syntax;
-import lang::credex::demo::lambda::state::Resolve;
+extend lang::credex::demo::lambda::Resolve;
 
 extend lang::credex::ParseRedex; 
 import lang::credex::Substitution; // for fresh
 
+import ParseTree;
 import IO;
+
+syntax Expr // new expression constructs
+  = let: "(" "let" "(" "(" Id Expr ")" ")" Expr ")"
+  | \set: "(" "set!" Id Expr ")";
+
+keyword Reserved = "let";
 
 // configurations
 syntax Conf = Store "⊢" Expr; 
@@ -25,6 +32,7 @@ syntax E // new expression evaluation contexts
   ;
 
 syntax C = Store store "⊢" E; 
+  
   
 CR red("var", C c, (E)`<Id x>`)
   = {<c, (Expr)`<Value v>`>}
@@ -65,7 +73,24 @@ Store update((Store)`<{IdValue ","}* v1>, <Id y> ↦ <Value _>, <{IdValue ","}* 
 default Store update((Store)`<{IdValue ","}* vs>`, Id x, Value v)
   = (Store)`<{IdValue ","}* vs>, <Id x> ↦ <Value v>`;
 
+
+/*
+ * Extend resolve
+ */
+ 
+Refs resolve((Expr)`(set! <Id x> <Expr e>)`, list[Env] envs, Lookup lu) 
+  = {<x@\loc,x,s,d> | <s,d> <- lu(x, x@\loc, envs)}
+  + resolve(e, envs, lu);
+  
+Refs resolve((Expr)`(let ((<Id x> <Expr e>)) <Expr b>)`, list[Env] envs, Lookup lu) 
+  = {<x@\loc, x, b@\loc, x@\loc>} // decls self-refer
+  + resolve(e, envs, lu)
+  + resolve(b, [{<b@\loc, x@\loc, x>}] + envs, lu);
+
+// TODO: why do I need to repeat this?
+// replace x with e in t
 Expr subst(Expr x, Expr e, Expr t) = subst(#Expr, x, e, t, resolve);
+  
 
 
 Conf xPlusX() = (Conf)`x ↦ 3 ⊢ (+ x x)`;
