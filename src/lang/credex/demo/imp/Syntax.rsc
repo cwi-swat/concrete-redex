@@ -31,7 +31,7 @@ lexical Int_
 syntax Stmt
   = assign: Id ":=" AExp
   | "skip"
-  | left seq: Stmt ";" Stmt // no lists for now
+  | right seq: Stmt ";" Stmt // no lists for now
   | ite: "if" BExp "then" Stmt "else" Stmt "fi"
   | "while" BExp "do" Stmt "od"
   ;
