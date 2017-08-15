@@ -14,7 +14,7 @@ import ParseTree;
 alias Model = tuple[rel[Tree,str,Tree] trace];
 
 App[Model] viewTrace(rel[Tree,str,Tree] trace, loc root = |project://concrete-redex/src/lang/credex/util|)
-  = app(Model() { return <trace>; }, view, update, |http://localhost:7227/index.html|, root);
+  = app(Model() { return <trace>; }, view, update, |http://localhost:7228/index.html|, root);
 
 data Msg;
 

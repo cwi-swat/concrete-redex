@@ -5,17 +5,45 @@ import lang::credex::demo::lambda::Resolve;
 extend lang::credex::ParseRedex; // extend because parse bug
 import String;
 
-
+// Contexts
 syntax E 
   = "(" Value* E Expr* ")" 
   | @hole "(" Value Value* ")"
   ;
+  
+  
+  
+  
+  
+  
+  
+  
+  
+  
+  
+  
+  
   
 CR red("+", E e, (E)`(+ <Num n1> <Num n2>)`)
   = {<e, [Expr]"<toInt(n1) + toInt(n2)>">};
 
 CR red("βv", E e, (E)`((λ (<Id x>) <Expr b>) <Value v>)`)
   = {<e, subst((Expr)`<Id x>`, (Expr)`<Value v>`, b)>};
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 default CR red(str _, E _, Tree _) = {};
 

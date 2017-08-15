@@ -90,7 +90,10 @@ Refs resolve((Expr)`(let ((<Id x> <Expr e>)) <Expr b>)`, list[Env] envs, Lookup 
 // TODO: why do I need to repeat this?
 // replace x with e in t
 Expr subst(Expr x, Expr e, Expr t) = subst(#Expr, x, e, t, resolve);
-  
+
+/*
+ * Some example terms.
+ */
 
 
 Conf xPlusX() = (Conf)`x ↦ 3 ⊢ (+ x x)`;

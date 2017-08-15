@@ -15,6 +15,15 @@ extend lang::credex::TraceRedex;
 
 alias CR = rel[Tree context, Tree reduct]; // context reduct pairs
 
+alias RRRR = rel[Tree redex, Tree reduct, str rule, Tree result];
+
+RRRR applyWithRedex(type[&C<:Tree] ct, type[&T<:Tree] tt, CR(str,&C, Tree) red, Tree t, set[str] rules, bool debug = false)
+  = { <rx, rt, r, typeCast(#Tree, plug(tt, ctx2, rt))> |
+     <&C ctx1, Tree rx> <- warnIfNonUnique(split(ct, t)),
+     str r <- rules,
+     <&C ctx2, Tree rt> <- red(r, ctx1, rx) }; //,
+
+
 @doc{Apply the reduction relation `red` to tree `t` trying all rules, decomposing `t` according to `ct`.
 The result is an `RR` which is relation from str (applied rule) to Tree (result).}
 RR apply(type[&C<:Tree] ct, type[&T<:Tree] tt, CR(str,&C, Tree) red, Tree t, set[str] rules, bool debug = false)
