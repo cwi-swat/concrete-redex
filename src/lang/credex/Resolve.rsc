@@ -13,7 +13,7 @@ alias Resolver = tuple[
   void(Tree) refer,
   void(Tree, void()) scope,
   void(Tree) resolve,
-  void(Tree) resolveKids,
+  void(Tree) recurse,
   Refs() refs
 ];
 
@@ -70,7 +70,7 @@ Resolver makeResolver(type[&T<:Tree] tt, void(&T, Resolver) myResolve, Lookup lo
     }
   }
   
-  void resolveKids(Tree t) {
+  void recurse(Tree t) {
     withMark(t, () {
       if (appl(Production p, list[Tree] args) := t) {
         for (int i <- [0..size(args)], i mod 2 == 0) {
@@ -85,11 +85,11 @@ Resolver makeResolver(type[&T<:Tree] tt, void(&T, Resolver) myResolve, Lookup lo
       withMark(t, () { myResolve(typed, this); });
     }
     else {
-      resolveKids(t);
+      recurse(t);
     }
   }
   
-  this = <declare, refer, scope, resolve, resolveKids, Refs() { return refs; }>;
+  this = <declare, refer, scope, resolve, recurse, Refs() { return refs; }>;
   return this;
   
 }

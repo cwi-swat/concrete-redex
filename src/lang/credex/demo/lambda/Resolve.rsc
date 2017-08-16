@@ -13,7 +13,7 @@ void resolve((Expr)`(λ (<Id x>) <Expr e>)`, Resolver r) {
   });
 }
 
-default void resolve(Expr e, Resolver r) = r.resolveKids(e);
+default void resolve(Expr e, Resolver r) = r.recurse(e);
 
 // replace x with e in t
 Expr subst(Expr x, Expr e, Expr t) = subst(#Expr, x, e, t, resolve);
