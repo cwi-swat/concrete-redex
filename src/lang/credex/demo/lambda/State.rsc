@@ -78,14 +78,18 @@ default Store update((Store)`<{IdValue ","}* vs>`, Id x, Value v)
  * Extend resolve
  */
  
-Refs resolve((Expr)`(set! <Id x> <Expr e>)`, list[Env] envs, Lookup lu) 
-  = {<x@\loc,x,s,d> | <s,d> <- lu(x, x@\loc, envs)}
-  + resolve(e, envs, lu);
+void resolve((Expr)`(set! <Id x> <Expr e>)`, Resolver r) {
+  r.refer(x);
+  r.resolve(e);
+} 
   
-Refs resolve((Expr)`(let ((<Id x> <Expr e>)) <Expr b>)`, list[Env] envs, Lookup lu) 
-  = {<x@\loc, x, b@\loc, x@\loc>} // decls self-refer
-  + resolve(e, envs, lu)
-  + resolve(b, [{<b@\loc, x@\loc, x>}] + envs, lu);
+void resolve(e:(Expr)`(let ((<Id x> <Expr e>)) <Expr b>)`, Resolver r) {
+  r.resolve(e);
+  r.scope(b, () {
+    r.declare(x);
+    r.resolve(b);
+  });
+} 
 
 // TODO: why do I need to repeat this?
 // replace x with e in t

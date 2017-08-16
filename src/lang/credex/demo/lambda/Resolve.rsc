@@ -2,19 +2,17 @@ module lang::credex::demo::lambda::Resolve
 
 import lang::credex::demo::lambda::Syntax;
 import lang::credex::Substitution;
-import ParseTree;
+import lang::credex::Resolve;
 
-Refs resolve((Expr)`(<Expr+ es>)`, list[Env] envs, Lookup lu)
-  = ( {} | it + resolve(e, envs, lu) | Expr e <- es );
-
-Refs resolve((Expr)`<Id x>`, list[Env] envs, Lookup lu)
-  = {<x@\loc,x,s,d> | <s,d> <- lu(x, x@\loc, envs)};
+void resolve((Expr)`<Id x>`, Resolver r) = r.refer(x);
   
-Refs resolve((Expr)`(λ (<Id x>) <Expr e>)`, list[Env] envs, Lookup lu)
-  = {<x@\loc, x, e@\loc, x@\loc>} // decls self-refer
-  + resolve(e, [{<e@\loc, x@\loc, x>}] + envs, lu);
-
-default Refs resolve(Expr _, list[Env] _, Lookup _) = {};
+void resolve((Expr)`(λ (<Id x>) <Expr e>)`, Resolver r) {
+  scope(e, () {
+    r.declare(x);
+    r.resolve(e);
+  });
+}
+default void resolve(Expr e, Resolver r) = r.resolveKids(e);
 
 // replace x with e in t
 Expr subst(Expr x, Expr e, Expr t) = subst(#Expr, x, e, t, resolve);
