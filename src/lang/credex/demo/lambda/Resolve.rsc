@@ -12,6 +12,7 @@ void resolve((Expr)`(λ (<Id x>) <Expr e>)`, Resolver r) {
     r.resolve(e);
   });
 }
+
 default void resolve(Expr e, Resolver r) = r.resolveKids(e);
 
 // replace x with e in t

@@ -16,12 +16,12 @@ import util::Maybe;
  
 private int round = -1;
 
-&T subst(type[&T<:Tree] tt, Tree x, Tree r, &T t, void(&T, Resolver) resolve) {
+&T subst(type[&T<:Tree] tt, map[Tree, Tree] s, &T t, void(&T, Resolver) resolve) {
   round += 1;
   Resolver resolver = makeResolver(tt, resolve);
   resolver.resolve(t);
   //println("REFS: <resolver.refs()<use,decl>>");
-  new = subst(x, r, t, resolver.refs());
+  new = subst(s, t, resolver.refs());
   //println("NEW: <new>");
   ren = nameFix(tt, new, resolve);
   //println("REN: <ren>");
@@ -31,16 +31,19 @@ private int round = -1;
   return typeCast(tt, new);
 }
 
-Tree subst(Tree x, Tree r, Tree t, Refs refs) {
-  if (boundIn(x, t, refs)) return t;
+Tree subst(map[Tree, Tree] s, Tree t, Refs refs) {
+  if (Tree x <- s, boundIn(x, t, refs)) {
+    return t;
+  }
 
   // NB: == is modulo annos
-  if (t == x) {
+  if (Tree x <- s, t == x) {
+    Tree r = s[x];
     return r[@\loc=mark(r@\loc, round)];
   }
 
   if (appl(Production p, list[Tree] args) := t) {
-    newArgs = [ i mod 2 == 0 ? subst(x, r, args[i], refs) : args[i] | int i <- [0..size(args)] ];
+    newArgs = [ i mod 2 == 0 ? subst(s, args[i], refs) : args[i] | int i <- [0..size(args)] ];
     Tree t2 = appl(p, newArgs);
     return t@\loc? ? t2[@\loc=t@\loc] : t2;
   }
