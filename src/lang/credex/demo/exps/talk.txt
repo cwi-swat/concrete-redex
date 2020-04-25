@@ -1,0 +1,35 @@
+
+
+- Intro
+
+- Exprs -> goal is to define that evaluation order of * is unspecified 
+  (don't care because comm.) 
+
+- Bigstep -> no intermediate steps, single execution trace, interpreter
+
+- Small step -> intermediate steps, single trace (picks one), navigation/traversal boilerplate
+
+- Redex introduction: small step, evaluation context, split/reduce/plug
+  credex uses parsing for matching a term against a context grammar, 
+  and ambiguity to model non-unique decompositions
+
+- Grammars for contexts : "E", @hole annotation, unspecified evaluation order of *
+
+- reduction rules: only 3 instead of 6
+
+- Execute: all execution traces, example 1 * 2 * 3
+
+- Problem re ctx grammar: no prios etc, may introduce ambiguities that do not
+correspond to intended semantics -> example 1 - 2 - 3
+
+- Solution: parenthesized grammars, show Ctx
+  credex will use *this* grammar to do decomposition so that all ambs
+  are the intended ones.
+  
+- Other goodies:
+  - binding/substitution : show lambda semantics
+     resolve for lambda
+     
+  - sentence generation GenSen for randomized testing and
+    possibly testing an interpreter/compler against a semantics.
+    
