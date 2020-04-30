@@ -7,13 +7,13 @@ extend lang::credex::demo::ql::Util;
 
 syntax Stmt
   = "update" "(" Id "," Expr ")"
-  | "updateVis" "(" Id "," Expr ")"
-  | "updateVal" "(" Id "," Expr "," Value ")"
+  | "vis" "(" Id "," Expr ")"
+  | "val" "(" Id "," Expr "," Value ")"
   | "{" Stmt* "}"
   ;  
   
 syntax Conf
-  = UI "," Question "⊢" Stmt stmt;
+  = UI ui "," Question "⊢" Stmt stmt;
   
   
 syntax C
@@ -21,13 +21,13 @@ syntax C
   
 syntax S
   = "update" "(" Id "," E ")"
-  | "updateVis" "(" Id "," E ")"
-  | "updateVal" "(" Id "," E "," Value ")"
-  | "{" Stmt* S Stmt* "}" // interleaving
-  | @hole "{" Stmt* "{" "}" Stmt* "}"
+  | "vis" "(" Id "," E ")"
+  | "val" "(" Id "," E "," Value ")"
+  | "{" S Stmt* "}" // interleaving
+  | @hole "{" "{" "}" Stmt* "}"
   | @hole "update" "(" Id "," Value ")"
-  | @hole "updateVis" "(" Id "," Value ")"
-  | @hole "updateVal" "(" Id "," Value "," Value ")"
+  | @hole "vis" "(" Id "," Value ")"
+  | @hole "val" "(" Id "," Value "," Value ")"
   ;
   
 syntax E
@@ -37,18 +37,18 @@ syntax E
 CR red("update", C c, (S)`update(<Id x>, <Value v>)`)
   = {<c[ui=updateVal(c.ui, x, v)], makeBlock(c.qs, c.ui, x)>};
 
-CR red("done", C c, (S)`{<Stmt* s1> { } <Stmt* s2>}`)
-  = {<c, (Stmt)`{<Stmt* s1> <Stmt* s2>}`>};
+CR red("done", C c, (S)`{ { } <Stmt* s2>}`)
+  = {<c, (Stmt)`{ <Stmt* s2>}`>};
 
-CR red("updateVal-same", C c, (S)`updateVal(<Id x>, <Value v>, <Value old>)`)
+CR red("val-same", C c, (S)`val(<Id x>, <Value v>, <Value old>)`)
   = {<c, (Stmt)`{}`>}
   when old == v;
 
-CR red("updateVal-diff", C c, (S)`updateVal(<Id x>, <Value v>, <Value old>)`)
+CR red("val-diff", C c, (S)`val(<Id x>, <Value v>, <Value old>)`)
   = {<c, (Stmt)`update(<Id x>, <Value v>)`>}
   when old != v;
 
-CR red("updateVis", C c, (S)`updateVis(<Id x>, <Bool b>)`)
+CR red("vis", C c, (S)`vis(<Id x>, <Bool b>)`)
   = {<c[ui=updateVis(c.ui, x, b)], (Stmt)`{}`>};
     
 Stmt makeBlock((Question)`{}`, UI _, Id _) = (Stmt)`{}`;
@@ -60,23 +60,23 @@ Stmt makeBlock((Question)`{ <Question q> <Question* qs>}`, UI ui, Id x)
     (Stmt)`{<Stmt* s2>}` := makeBlock((Question)`{<Question* qs>}`, ui, x);
   
 Stmt q2stmt((Question)`if (<Expr cond>) <Label _> <Id y>: <Type _>`, UI ui, Id x)
-  = (Stmt)`{updateVis(<Id y>, <Expr cond>)}`
+  = (Stmt)`{vis(<Id y>, <Expr cond>)}`
   when x in uses(cond);
   
 Stmt q2stmt((Question)`if (<Expr cond>) <Label _> <Id y>: <Type _> = <Expr e>`, UI ui, Id x)
-  = (Stmt)`{updateVis(<Id y>, <Expr cond>) updateVal(<Id y>, <Expr e>, <Value old>)}`
+  = (Stmt)`{vis(<Id y>, <Expr cond>) val(<Id y>, <Expr e>, <Value old>)}`
   when
     x in uses(cond),
     x in uses(e), 
     Value old := lookup(ui, y);
 
 Stmt q2stmt((Question)`if (<Expr cond>) <Label _> <Id y>: <Type _> = <Expr e>`, UI ui, Id x)
-  = (Stmt)`{updateVis(<Id y>, <Expr cond>)}`
+  = (Stmt)`{vis(<Id y>, <Expr cond>)}`
   when
     x in uses(cond), x notin uses(e);
 
 Stmt q2stmt((Question)`if (<Expr cond>) <Label _> <Id y>: <Type _> = <Expr e>`, UI ui, Id x)
-  = (Stmt)`{updateVal(<Id y>, <Expr e>, <Value old>)}`
+  = (Stmt)`{val(<Id y>, <Expr e>, <Value old>)}`
   when
     x in uses(e), x notin uses(cond),
     Value old := lookup(ui, y);
@@ -97,7 +97,7 @@ Conf initialConf(f:(Form)`form <Id _> { <Question* qs> }`, Stmt stmt, UI ui = in
   =  (Conf)`<UI ui>, {<Question* qs>} ⊢ <Stmt stmt>`;
 
 RR applyQL(Conf c) = apply(#C, #Conf, red, c, 
-  {"update", "eval", "done", "updateVal-same", "updateVal-diff", "updateVis"});
+  {"update", "eval", "done", "val-same", "val-diff", "vis"});
 
 void redexSteps(Conf c, str indent = "") {
   //if (isVal(e)) {
@@ -105,6 +105,11 @@ void redexSteps(Conf c, str indent = "") {
   //}
 
   RR rr = applyQL(c);
+  
+  if (rr == {}) {
+    println(c.ui);
+  }
+  
   int i = 0;
 
   str indented(str last, str other) 
@@ -116,6 +121,19 @@ void redexSteps(Conf c, str indent = "") {
     i += 1;
   }
 }
+
+void runSimple(Stmt stm, Form form = simpleExample()) {
+  c = initialConf(simpleExample(), stm);
+  redexSteps(c);
+}
+ 
+// with update(c, 10) this should evaluate to
+// 10 + 11 + 1 = 22  
+Form simpleExample() = (Form)`form simple {
+'  if (true) "A" a: integer = c + b + 1
+'  if (true) "B" b: integer = c + 1
+'  if (true) "C" c: integer
+'}`;   
    
 Form example() = (Form)`form taxOfficeExample { 
 '  if (true) "Did you sell a house in 2010?"
