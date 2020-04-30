@@ -137,11 +137,11 @@ UI initialUI((Form)`form <Id x> { <Question q> <Question* qs>}`)
     (UI)`ui <Id _> {<UIElement* elts>}` := initialUI((Form)`form <Id x> {<Question* qs>}`);
 
 UIElement initialElt((Question)`if (<Expr _>) <Label l> <Id x>: <Type t>`)
-  = (UIElement)`[ true, <Id x> ] <Label l> : <Value v>`
+  = (UIElement)`[true, <Id x>] <Label l> : <Value v>`
   when 
     Value v := defaultValue(t);    
 
 UIElement initialElt((Question)`if (<Expr _>) <Label l> <Id x>: <Type t> = <Expr _>` )
-  = (UIElement)`[ true, <Id x> ] <Label l> : <Value v>`
+  = (UIElement)`[true, <Id x>] <Label l> : <Value v>`
   when 
     Value v := defaultValue(t);    

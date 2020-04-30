@@ -41,6 +41,7 @@ syntax E
   = @hole Expr!value // call eval directly
   ;
 
+// dealing with unit of statement sequencing
 CR red("done", C c, (S)`{ { } <Stmt* s2>}`)
   = {<c, (Stmt)`{ <Stmt* s2>}`>};
 
@@ -131,7 +132,9 @@ void redexSteps(Conf c, str indent = "") {
   RR rr = applyQL(c);
   
   if (rr == {}) {
-    println(c.ui);
+    for (UIElement e <- c.ui.elts) {
+      println(e);
+    }
   }
   
   int i = 0;
@@ -140,6 +143,7 @@ void redexSteps(Conf c, str indent = "") {
     = "<indent> <i == size(rr) - 1 ? last : other> ";
     
   for (<str rule, Conf sub> <- rr) {
+    println("<indented("│ ", "│ ")><toString(c.ui)> ⊢"); 
     println("<indented("└─", "├─")><c.stmt> \u001b[34m─<rule>→\u001b[0m <sub.stmt>");
     redexSteps(sub, indent = indented(" ", "│"));
     i += 1;
@@ -147,17 +151,27 @@ void redexSteps(Conf c, str indent = "") {
 }
 
 void runSimple(Stmt stm, Form form = simpleExample()) {
-  c = initialConf(simpleExample(), stm);
+  c = initialConf(form, stm);
   redexSteps(c);
 }
+ 
+str toString(UI ui) =
+ intercalate(", ", [ "<e.name><(Bool)`false` := e.visible ? "\'" : "">↦<e.val>" | UIElement e <- ui.elts ]); 
  
 // with update(c, 10) this should evaluate to
 // 10 + 11 + 1 = 22  
 Form simpleExample() = (Form)`form simple {
 '  if (true) "A" a: integer = c + b + 1
-'  if (true) "B" b: integer = c + 1
+'  if (a \> 11) "B" b: integer = c + 1
 '  if (true) "C" c: integer
 '}`;   
+
+Form cyclicExample() = (Form)`form simple {
+'  if (true) "A" a: integer = c + b + 1
+'  if (true) "B" b: integer = c + 1
+'  if (true) "C" c: integer = a + 1
+'}`;   
+
    
 Form example() = (Form)`form taxOfficeExample { 
 '  if (true) "Did you sell a house in 2010?"
