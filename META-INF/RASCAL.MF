@@ -1,5 +1,7 @@
 Manifest-Version: 0.0.1
 Main-Function: main
+Project-Name: concrete-redex
+Require-Libraries: |lib://rascal-core/|
 Main-Module: Plugin
 Source: src
 

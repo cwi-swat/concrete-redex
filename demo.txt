@@ -1,0 +1,38 @@
+
+import lang::credex::demo::lambda::Semantics;
+import lang::credex::demo::imp::Semantics;
+import lang::credex::util::ViewTrace;
+import lang::credex::util::Debug;
+
+## CBV Lambda
+
+traceLambdaV(onePlusTwo(), debug=true);
+t = traceLambdaV(onePlusTwo());
+a = viewTrace(t);
+a.serve();
+a.stop();
+
+
+## State
+
+import lang::credex::demo::lambda::State;
+traceLambdaS(bigLet(), debug=true);
+t = traceLambdaS(bigLet());
+a = viewTrace(t);
+a.serve();
+a.stop();
+
+
+## IMP
+
+t = traceImp(example());
+a = viewTrace(t);
+a.serve();
+a.stop();
+
+d = debugImp();
+d.serve();
+
+
+
+

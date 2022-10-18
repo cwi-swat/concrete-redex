@@ -13,7 +13,7 @@ import ParseTree;
 syntax Expr
   = Num
   | bracket "(" Expr ")"
-  | left Expr "*" Expr
+  | assoc Expr "*" Expr
   > left Expr "-" Expr
   ;
   
@@ -24,7 +24,7 @@ lexical Num
   
 // context grammar  
 syntax E
-  = bracket "(" E ")"
+  = "(" E ")"
   | E "*" Expr
   | Expr "*" E
   | E "-" Expr
@@ -32,6 +32,7 @@ syntax E
   | @hole "(" Num ")" 
   | @hole Num "*" Num
   | @hole Num "-" Num
+  | @hole Num
   ;
  
 
@@ -92,6 +93,7 @@ Expr step((Expr)`<Num n> - <Expr r>`)
 Expr step((Expr)`<Num n1> - <Num n2>`) 
   = [Expr]"<toInt(n1) - toInt(n2)>";
     
+  
 default Expr step(Expr e) = e; // done
 
 
@@ -113,6 +115,7 @@ int steps(Expr e, bool debug = false) {
  * Redex semantics
  */
  
+ // TODO: this should go.
  CR red("par", E e, (E)`(<Num n>)`) 
   = {<e, (Expr)`<Num n>`>};
 
@@ -126,7 +129,7 @@ default CR red(str _, E _, Tree _) = {};
 
 RR applyExpr(Expr e) = apply(#E, #Expr, red, e, {"mul", "sub", "par"});
 
-void redexSteps(Expr e, str indent = "", RR(Expr) applyExpr = applyExpr) {
+void redexSteps(Expr e, str indent = "") {
   if (isVal(e)) {
     return;
   }
@@ -139,7 +142,7 @@ void redexSteps(Expr e, str indent = "", RR(Expr) applyExpr = applyExpr) {
     
   for (<str rule, Expr sub> <- rr) {
     println("<indented("└─", "├─")><e> \u001b[34m─<rule>→\u001b[0m <sub>");
-    redexSteps(sub, indent = indented(" ", "│"), applyExpr=applyExpr);
+    redexSteps(sub, indent = indented(" ", "│"));
     i += 1;
   }
 }

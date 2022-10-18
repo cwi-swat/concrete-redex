@@ -8,6 +8,8 @@ import IO;
 
 extend lang::credex::TraceRedex;
 
+import lang::credex::util::Parenthesize;
+import Exception;
 
 /*
  * Applying reduction relations
@@ -19,29 +21,43 @@ alias RRRR = rel[Tree redex, Tree reduct, str rule, Tree result];
 
 RRRR applyWithRedex(type[&C<:Tree] ct, type[&T<:Tree] tt, CR(str,&C, Tree) red, Tree t, set[str] rules, bool debug = false)
   = { <rx, rt, r, typeCast(#Tree, plug(tt, ctx2, rt))> |
-     <&C ctx1, Tree rx> <- warnIfNonUnique(split(ct, t)),
+     <&C ctx1, Tree rx> <- warnIfNonUnique(split(ct, t), debug),
      str r <- rules,
      <&C ctx2, Tree rt> <- red(r, ctx1, rx) }; //,
 
 
-@doc{Apply the reduction relation `red` to tree `t` trying all rules, decomposing `t` according to `ct`.
-The result is an `RR` which is relation from str (applied rule) to Tree (result).}
-RR apply(type[&C<:Tree] ct, type[&T<:Tree] tt, CR(str,&C, Tree) red, Tree t, set[str] rules, bool debug = false)
-  = { <r, typeCast(#Tree, plug(tt, ctx2, rt))> |
-     <&C ctx1, Tree rx> <- warnIfNonUnique(split(ct, t)),
-     str r <- rules,
-     <&C ctx2, Tree rt> <- red(r, ctx1, rx) }; //,
-     //!debug || bprintln("<rx> === <r> ===\> <rt>") };
+//@doc{Apply the reduction relation `red` to tree `t` trying all rules, decomposing `t` according to `ct`.
+//The result is an `RR` which is relation from str (applied rule) to Tree (result).}
+//RR apply(type[&C<:Tree] ct, type[&T<:Tree] tt, CR(str,&C, Tree) red, Tree t, set[str] rules, bool debug = false)
+//  = { <r, typeCast(#Tree, plug(tt, ctx2, rt))> |
+//     <&C ctx1, Tree rx> <- warnIfNonUnique(split(ct, t), debug),
+//     str r <- rules,
+//     <&C ctx2, Tree rt> <- red(r, ctx1, rx) }; //,
+//     //!debug || bprintln("<rx> === <r> ===\> <rt>") };
+
+
+RR apply(type[&C<:Tree] ct, type[&T<:Tree] tt, CR(str,&C<:Tree, Tree) red, Tree t, set[str] rules, bool debug = false) {
+  RR result = {};
+  //println("Applying to <t>");
+  for (<&C<:Tree ctx1, Tree rx> <- split(ct, t), str r <- rules, <&C<:Tree ctx2, Tree rt> <- red(r, ctx1, rx)) {
+    if (debug) {
+      println("rule = <r>, redex = <rx>, reduct = <rt>");
+    }
+    result += {<r, typeCast(#Tree, plug(tt, ctx2, rt))>};
+  } 
+  return result;
+}
+
       
-R reduce(type[&C<:Tree] ct, type[&T<:Tree] tt, CR(str,&C, Tree) red, Tree t, set[str] rules)
+R reduce(type[&C<:Tree] ct, type[&T<:Tree] tt, CR(str,&C<:Tree, Tree) red, Tree t, set[str] rules)
   = apply(ct, tt, red, t, rules)<1>;
 
 
 
-rel[&C, Tree] warnIfNonUnique(rel[&C<:Tree, Tree] decomps) {
-  if (size(decomps) > 1) {
+rel[&C<:Tree, Tree] warnIfNonUnique(rel[&C<:Tree, Tree] decomps, bool debug) {
+  if (debug, size(decomps) > 1) {
     println("WARNING: non unique decomposition");
-    for (<&C ctx, Tree rx> <- decomps) {
+    for (<&C<:Tree ctx, Tree rx> <- decomps) {
       println("CTX: <ctx>");
       println("RDX: <rx>");
     }
@@ -57,6 +73,29 @@ bool checkContext(type[&C<:Tree] ct) = true; // todo
 /*
  * Split and plug
  */
+ 
+ &T<:Tree myUnparen(type[&T<:Tree] typ, &T<:Tree t) {
+  return  visit (t) {
+    case appl(prod(Symbol s, list[Symbol] defs, set[Attr] attrs), list[Tree] args) =>
+      appl(prod(s, defs[2..-2], attrs), args[2..-2])
+        when !(s is lex), lit("⟨") in defs
+    case appl(prod(Symbol s, list[Symbol] defs, set[Attr] attrs), list[Tree] args) =>
+      appl(prod(s, defs[1..-1], attrs), args[1..-1])
+        when s is lex, lit("⟨") in defs
+  }
+}
+
+&T<:Tree debracket(type[&T<:Tree] typ, &T<:Tree t) {
+  return  visit (t) {
+    case appl(prod(_, _, {\bracket(), *_}), list[Tree] args) => args[2]
+  }
+}
+
+void splitPrint(type[&T<:Tree] ctxType, Tree t) {
+  for (<Tree ctx, Tree rx> <- split(ctxType, t)) {
+    println("<ctx> [ <rx> ]");
+  }
+}
 
 @doc{Split a term according to the provided context grammar}
 rel[Tree,Tree] split(type[&T<:Tree] ctxType, Tree t) {
@@ -65,7 +104,7 @@ rel[Tree,Tree] split(type[&T<:Tree] ctxType, Tree t) {
     ctx = parse(ctxType, "<t>", t@\loc, allowAmbiguity=true);
     rel[Tree, Tree] result = {};
     flattenAmbs(ctx, (Tree alt, Tree redex) {
-      result += {<alt, redex>};
+      result += {<debracket(ctxType, alt), debracket(ctxType, redex)>};
     });
     return result;
   }
@@ -74,13 +113,14 @@ rel[Tree,Tree] split(type[&T<:Tree] ctxType, Tree t) {
   }
 }
 
-private bool isHole(Tree t) = \tag("hole"()) in t.prod.attributes 
+private bool isHole(Tree t) 
+  = \tag("hole"()) in t.prod.attributes || \tag("redex"()) in t.prod.attributes
   when
     t has prod, t.prod has attributes;
 
 private default bool isHole(Tree t) = false; 
 
-private void flattenAmbs(Tree t, void(Tree,Tree) k) {
+void flattenAmbs(Tree t, void(Tree,Tree) k) {
   if (isHole(t)) { 
     k(makeHole(t.prod.def, t@\loc), t); 
     return;
@@ -128,7 +168,7 @@ default str getSort(Symbol _) = "";
 bool isContext(Tree t) = /^[A-Z]$/ := getSort(t.prod.def) || isHole(t);
 
 @doc{Plugging the reduct back into a context (NB: *not* syntax safe).
-Handcoded, because visit it too slow.}
+Handcoded, because visit is too slow.}
 Tree plugTree(Tree ctx, Tree reduct) {
   assert isContext(ctx) : "plug not traversing context <ctx>";
 

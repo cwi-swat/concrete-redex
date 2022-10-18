@@ -11,8 +11,9 @@ alias R = set[Tree];
 @doc{Set of results including the rule label that was used}
 alias RR = rel[str rule, Tree to];
 
-@doc{An reduction trace, linking source to target via rule label}
+@doc{A reduction trace, linking source to target via rule label}
 alias TR = rel[Tree from, str rule, Tree to]; 
+
 
 
 alias Iter[&T<:Tree] = tuple[bool() hasNext, &T() next];

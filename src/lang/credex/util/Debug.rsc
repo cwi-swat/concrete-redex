@@ -164,7 +164,7 @@ void viewResults(Model model) {
   for (model.position >= 0, <Tree redex, Tree reduct, str rule, Tree result> <- model.trace[model.position].results) {
       h3("Contractum (via <rule>)");
       a(onClick(next(rule, i)), () {
-        highlightToHtml(reduct, container=code);
+        highlightToHtml(reduct, container=pre);
       });
       //button(\type("button"), class("btn btn-secondary btn-sm"), onClick(showRule(rule)), rule);
       hr();
@@ -218,7 +218,7 @@ void viewSource(Model model) {
   Tree src = markedSource(model.trace[model.position].source, toSet(model.trace[model.position].results<0>));
   h3("Term");
   a(onClick(prev()), () {
-    highlightToHtml(src, container=code, more=redexCSS);
+    highlightToHtml(src, container=pre, more=redexCSS);
   });
   
  // table(class("table"), () {

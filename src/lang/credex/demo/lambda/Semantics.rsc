@@ -17,12 +17,14 @@ CR red("+", E e, (E)`(+ <Num n1> <Num n2>)`)
 CR red("βv", E e, (E)`((λ (<Id x>) <Expr b>) <Value v>)`)
   = {<e, subst((Expr)`<Id x>`, (Expr)`<Value v>`, b)>};
 
-
 default CR red(str _, E _, Tree _) = {};
 
 R reduceLambdaV(Expr e) = reduce(#E, #Expr, red, e, {"+", "βv"});
 
 RR applyLambdaV(Expr e) = apply(#E, #Expr, red, e, {"+", "βv"});
+
+TR traceLambdaV(Expr e, bool debug=false) = trace(applyLambdaV, e, debug=debug); 
+
 
 int toInt(Num x) = toInt("<x>");  
   

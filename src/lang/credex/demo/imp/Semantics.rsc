@@ -19,8 +19,7 @@ TR traceImp(Conf c, bool debug=false) = trace(applyImp, c, debug=debug);
 
 default CR red(str _, C _, Tree _) = {};
 
-CR red("lookup", C c, (A)`<Id x>`)
-  = {<c, (AExp)`<Int i>`>}
+CR red("lookup", C c, (A)`<Id x>`) = {<c, (AExp)`<Int i>`>}
   when 
     isDefined(x, c.state), 
     Int i := lookup(x, c.state); 
@@ -28,8 +27,7 @@ CR red("lookup", C c, (A)`<Id x>`)
 
 CR red("add", C c, (A)`<Int i1> + <Int i2>`) = {<c, (AExp)`<Int i>`>} 
   when
-    int n1 := toInt("<i1>"),
-    int n2 := toInt("<i2>"),
+    int n1 := toInt("<i1>"), int n2 := toInt("<i2>"),
     Int i := [Int]"<n1 + n2>";
 
 CR red("div", C c, (A)`<Int i1> / <Int i2>`) = {<c, (AExp)`<Int i>`>}

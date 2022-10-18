@@ -159,11 +159,13 @@ str toString(UI ui) =
  intercalate(", ", [ "<e.name><(Bool)`false` := e.visible ? "\'" : "">↦<e.val>" | UIElement e <- ui.elts ]); 
  
 // with update(c, 10) this should evaluate to
-// 10 + 11 + 1 = 22  
+// 10 + 11 + 1 = 22
+// and eventuall b invisible but c visible
+// (and intermittently this is swapped)  
 Form simpleExample() = (Form)`form simple {
 '  if (true) "A" a: integer = c + b + 1
-'  if (a \> 11) "B" b: integer = c + 1
-'  if (true) "C" c: integer
+'  if (a \< 20) "B" b: integer = c + 1
+'  if (a \> 20) "C" c: integer
 '}`;   
 
 Form cyclicExample() = (Form)`form simple {

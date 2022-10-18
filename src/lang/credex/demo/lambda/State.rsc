@@ -53,6 +53,7 @@ default CR red(str n, (C)`<Store s> ⊢ <E e1>`, Tree rx)
   
 R reduceLambdaS(Conf c) = reduce(#C, #Conf, red, c, {"+", "βv", "var", "set", "let"});
 RR applyLambdaS(Conf c) = apply(#C, #Conf, red, c, {"+", "βv", "var", "set", "let"});
+TR traceLambdaS(Conf c, bool debug=false) = trace(applyLambdaS, c, debug=debug);
 
 /*
  * Lookup/update functions on store.
