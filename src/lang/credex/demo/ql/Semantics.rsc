@@ -144,7 +144,7 @@ void redexSteps(Conf c, str indent = "") {
     = "<indent> <i == size(rr) - 1 ? last : other> ";
     
   for (<str rule, Conf sub> <- rr) {
-    println("<indented("│ ", "│ ")><toString(c.ui)> ⊢"); 
+    //println("<indented("│ ", "│ ")><toString(c.ui)> ⊢"); 
     println("<indented("└─", "├─")><c.stmt> \u001b[34m─<rule>→\u001b[0m <sub.stmt>");
     redexSteps(sub, indent = indented(" ", "│"));
     i += 1;
@@ -169,9 +169,9 @@ str toString(UI ui) =
 // and eventuall b invisible but c visible
 // (and intermittently this is swapped)  
 Form simpleExample() = (Form)`form simple {
-'  if (true) "A" a: integer = c + b + 1
-'  if (a \< 20) "B" b: integer = c + 1
-'  if (a \> 20) "C" c: integer
+'  if (true) "A" a: integer = c+b+1
+'  if (a\<20) "B" b: integer = c+1
+'  if (a\>20) "C" c: integer
 '}`;   
 
 Form cyclicExample() = (Form)`form simple {
