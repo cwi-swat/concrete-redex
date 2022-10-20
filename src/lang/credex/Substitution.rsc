@@ -16,15 +16,16 @@ import util::Maybe;
  
 private int round = -1;
 
-&T subst(type[&T<:Tree] tt, map[Tree, Tree] s, &T t, void(&T, Resolver) resolve) {
+&T<:Tree subst(type[&T<:Tree] tt, map[Tree, Tree] s, Tree t, void(Tree, Resolver) resolve) {
+  //println("subst: <round>  :::::  <t>");
   round += 1;
   Resolver resolver = makeResolver(tt, resolve);
   resolver.resolve(t);
-  //println("REFS: <resolver.refs()<use,decl>>");
+  // println("REFS: <resolver.refs()<use,decl>>");
   new = subst(s, t, resolver.refs());
-  //println("NEW: <new>");
+  // println("NEW: <new>");
   ren = nameFix(tt, new, resolve);
-  //println("REN: <ren>");
+  // println("REN: <ren>");
   if (ren != ()) { // prevent a traversal
     new = rename(new, ren);
   }
@@ -36,8 +37,7 @@ Tree subst(map[Tree, Tree] s, Tree t, Refs refs) {
     return t;
   }
 
-  // NB: == is modulo annos
-  if (Tree x <- s, t == x) {
+  if (Tree x <- s, "<t>" == "<x>") {
     Tree r = s[x];
     return r[@\loc=mark(r@\loc, round)];
   }
@@ -72,8 +72,8 @@ default Tree rename(Tree t, map[loc, Tree] ren) = t;
 bool captured(loc use, loc decl)
   = getMark(use) == round && getMark(decl) != round;
 
-map[loc,Tree] nameFix(type[&T<:Tree] tt, Tree t, void(&T, Resolver) resolve) { 
-  captures = ();
+map[loc,Tree] nameFix(type[&T<:Tree] tt, Tree t, void(Tree, Resolver) resolve) { 
+  map[loc, Tree] captures = ();
   fv = {};
   
   rel[loc, loc] lookup_(Tree x, loc u, list[Env] envs) {

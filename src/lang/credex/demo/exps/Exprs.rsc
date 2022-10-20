@@ -29,10 +29,9 @@ syntax E
   | Expr "*" E
   | E "-" Expr
   | Num "-" E
-  | @hole "(" Num ")" 
-  | @hole Num "*" Num
-  | @hole Num "-" Num
-  | @hole Num
+  | @redex Num "*" Num
+  | @redex Num "-" Num
+  | @redex "(" Num ")"
   ;
  
 
@@ -116,8 +115,8 @@ int steps(Expr e, bool debug = false) {
  */
  
  // TODO: this should go.
- CR red("par", E e, (E)`(<Num n>)`) 
-  = {<e, (Expr)`<Num n>`>};
+//  CR red("par", E e, (E)`(<Num n>)`) 
+//   = {<e, (Expr)`<Num n>`>};
 
  CR red("mul", E e, (E)`<Num n1> * <Num n2>`)
   = {<e, [Expr]"<toInt(n1) * toInt(n2)>">};
@@ -129,7 +128,12 @@ default CR red(str _, E _, Tree _) = {};
 
 RR applyExpr(Expr e) = apply(#E, #Expr, red, e, {"mul", "sub", "par"});
 
-void redexSteps(Expr e, str indent = "") {
+void redexSteps(Expr e) {
+  println("<e>");
+  redexSteps_(e);
+}
+
+void redexSteps_(Expr e, str indent = "") {
   if (isVal(e)) {
     return;
   }
@@ -142,10 +146,11 @@ void redexSteps(Expr e, str indent = "") {
     
   for (<str rule, Expr sub> <- rr) {
     println("<indented("└─", "├─")><e> \u001b[34m─<rule>→\u001b[0m <sub>");
-    redexSteps(sub, indent = indented(" ", "│"));
+    redexSteps_(sub, indent = indented(" ", "│"));
     i += 1;
   }
 }
+
 
      
      

@@ -47,7 +47,7 @@ list[&T] steps(R(&T<:Tree) step, &T t0) {
 
 @doc{Obtain a trace relation from a given apply function and initial term.
 When debug is true, no result is returned, but intermediate data is printed.}
-TR trace(RR(&T<:Tree) apply, &T t0, bool debug = false) {
+TR trace(RR(&T<:Tree) apply, &T<:Tree t0, bool debug = false) {
   TR trace = {};
   
   void block() {

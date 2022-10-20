@@ -36,10 +36,10 @@ RRRR applyWithRedex(type[&C<:Tree] ct, type[&T<:Tree] tt, CR(str,&C, Tree) red, 
 //     //!debug || bprintln("<rx> === <r> ===\> <rt>") };
 
 
-RR apply(type[&C<:Tree] ct, type[&T<:Tree] tt, CR(str,&C<:Tree, Tree) red, Tree t, set[str] rules, bool debug = false) {
+RR apply(type[Tree] ct, type[Tree] tt, CR(str,Tree, Tree) red, Tree t, set[str] rules, bool debug = false) {
   RR result = {};
   //println("Applying to <t>");
-  for (<&C<:Tree ctx1, Tree rx> <- split(ct, t), str r <- rules, <&C<:Tree ctx2, Tree rt> <- red(r, ctx1, rx)) {
+  for (<Tree ctx1, Tree rx> <- split(ct, t), str r <- rules, <Tree ctx2, Tree rt> <- red(r, ctx1, rx)) {
     if (debug) {
       println("rule = <r>, redex = <rx>, reduct = <rt>");
     }
@@ -86,6 +86,7 @@ bool checkContext(type[&C<:Tree] ct) = true; // todo
 }
 
 &T<:Tree debracket(type[&T<:Tree] typ, &T<:Tree t) {
+  return t;
   return  visit (t) {
     case appl(prod(_, _, {\bracket(), *_}), list[Tree] args) => args[2]
   }
@@ -99,7 +100,7 @@ void splitPrint(type[&T<:Tree] ctxType, Tree t) {
 
 @doc{Split a term according to the provided context grammar}
 rel[Tree,Tree] split(type[&T<:Tree] ctxType, Tree t) {
-  // TODO: fix return type
+  //println("split: <t>");
   try {
     ctx = parse(ctxType, "<t>", t@\loc, allowAmbiguity=true);
     rel[Tree, Tree] result = {};
@@ -109,6 +110,7 @@ rel[Tree,Tree] split(type[&T<:Tree] ctxType, Tree t) {
     return result;
   }
   catch ParseError(loc l): {
+    //println("parse error");
     return {};  // stuck
   }
 }

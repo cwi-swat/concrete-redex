@@ -301,9 +301,8 @@ void split(Expr e) {
   });
 }
 
-void theScript() {
-  src = "(2 - 1) * (4 - 3 - 1)";
-  //src = "1 - 2 * 3";
+
+void theScript(str src) {
   println("Source: <src>");
   Expr e = parse(#Expr, src); // not amb
   E ctx = parse(#E, src, allowAmbiguity=true); // includes bad amb

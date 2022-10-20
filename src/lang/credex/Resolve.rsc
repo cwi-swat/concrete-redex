@@ -30,7 +30,7 @@ rel[loc, loc] defaultLookup(Tree x, loc u, list[Env] envs) {
 }
   
 // for now, single sorted...
-Resolver makeResolver(type[&T<:Tree] tt, void(&T, Resolver) myResolve, Lookup lookup = defaultLookup) {
+Resolver makeResolver(type[&T<:Tree] tt, void(Tree, Resolver) myResolve, Lookup lookup = defaultLookup) {
   list[loc] scopes = [];
   Refs refs = {};
   list[Env] envs = [];
@@ -81,7 +81,7 @@ Resolver makeResolver(type[&T<:Tree] tt, void(&T, Resolver) myResolve, Lookup lo
   }
   
   void resolve(Tree t) {
-    if (&T typed := t) {
+    if (&T<:Tree typed := t) {
       withMark(t, () { myResolve(typed, this); });
     }
     else {
