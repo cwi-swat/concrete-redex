@@ -112,11 +112,11 @@ Value lookup(UIElement* elts, Id x)
   
 UI updateVal(ui:(UI)`ui <Id u> {<UIElement* es1> [<Bool b>, <Id y>] <Label l>: <Value _> <UIElement* es2>}`, Id x, Value v)
  = (UI)`ui <Id u> {<UIElement* es1> [<Bool b>, <Id y>] <Label l>: <Value v> <UIElement* es2>}`
- when y == x;
+ when y := x;
   
 UI updateVis(ui:(UI)`ui <Id u> {<UIElement* es1> [<Bool _>, <Id y>] <Label l>: <Value v> <UIElement* es2>}`, Id x, Bool b)
  = (UI)`ui <Id u> {<UIElement* es1> [<Bool b>, <Id y>] <Label l>: <Value v> <UIElement* es2>}`
- when y == x;
+ when y := x;
  
  
 Value defaultValue((Type)`boolean`) = (Value)`false`;

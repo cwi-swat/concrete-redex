@@ -3,6 +3,7 @@ module lang::credex::demo::imp::Semantics
 import lang::credex::demo::imp::Contexts;
 extend lang::credex::ParseRedex;
 import String;
+import IO;
 
 
 R reduceImp(Conf c) = reduce(#C, #Conf, red, c, {"leq", "seq", "if-true",
@@ -63,17 +64,29 @@ CR red("assign", C c, (S)`<Id x> := <Int i>`) = {<c[state=s2], (Stmt)`skip`>}
     isDefined(x, c.state), 
     State s2 := update(x, i, c.state);
 
-bool isDefined(Id x, (State)`[<{VarInt ","}* _>, <Id y> ↦ <Int i>, <{VarInt ","}* _>]`)
-  = true
-  when x == y;
-  
+// bool isDefined(Id x, (State)`[<{VarInt ","}* _>, <Id y> ↦ <Int i>, <{VarInt ","}* _>]`)
+//   = true
+//   when x == y;
+
+bool isDefined(Id x, State s) {
+  for ((VarInt)`<Id y> ↦ <Int i>` <- s.pairs) {
+     if (y := x) {
+       return true;
+     }
+  }
+  return false;
+}
+
 Int lookup(Id x, (State)`[<{VarInt ","}* _>, <Id y> ↦ <Int i>, <{VarInt ","}* _>]`)
   = i
-  when x == y;
+  when x := y;
   
 State update(Id x, Int i, (State)`[<{VarInt ","}* v1>, <Id y> ↦ <Int _>, <{VarInt ","}* v2>]`)
   = (State)`[<{VarInt ","}* v1>, <Id x> ↦ <Int i>, <{VarInt ","}* v2>]`
-  when x == y;
+  when x := y;
+
+Conf exampleLine() 
+  = (Conf)`[x↦0,y ↦0] ⊢ x:=1; y:=x+2; if x\<=y then x:=x+y else y:=0 fi`;
 
 
 Conf example() 
@@ -118,3 +131,28 @@ Conf primes(int n)
 '  n := n+1
 'od`
   when Int x := [Int]"<n>";
+
+
+void redexStepsImp(Conf e) {
+  println("<e>");
+  redexStepsImp_(e);
+}
+
+void redexStepsImp_(Conf e, str indent = "") {
+  //println("E: <e>");
+  if ((Conf)`<State _> ⊢ skip` := e) {
+    return;
+  }
+
+  RR rr = applyImp(e);
+  int i = 0;
+
+  str indented(str last, str other) 
+    = "<indent> <i == size(rr) - 1 ? last : other> ";
+    
+  for (<str rule, Conf sub> <- rr) {
+    println("<indented("└─", "├─")><e> \u001b[34m─<rule>→\u001b[0m <sub>");
+    redexStepsImp_(sub, indent = indented(" ", "│"));
+    i += 1;
+  }
+}

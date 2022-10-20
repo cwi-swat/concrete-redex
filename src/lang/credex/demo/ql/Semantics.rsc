@@ -4,6 +4,7 @@ extend lang::credex::ParseRedex; // extend because parse bug
 
 extend  lang::credex::demo::ql::QL;
 extend lang::credex::demo::ql::Util;
+import IO;
 
 syntax Stmt
   = "update" "(" Id "," Expr ")" // a user action
@@ -97,29 +98,29 @@ Stmt makeBlock((Question)`{ <Question q> <Question* qs>}`, UI ui, Id x)
   
 Stmt q2stmt((Question)`if (<Expr cond>) <Label _> <Id y>: <Type _>`, UI ui, Id x)
   = (Stmt)`{vis(<Id y>, <Expr cond>)}`
-  when x in uses(cond);
+  when "<x>" in uses(cond);
   
 Stmt q2stmt((Question)`if (<Expr cond>) <Label _> <Id y>: <Type _> = <Expr e>`, UI ui, Id x)
   = (Stmt)`{vis(<Id y>, <Expr cond>) val(<Id y>, <Expr e>, <Value old>)}`
   when
-    x in uses(cond),
-    x in uses(e), 
+    "<x>" in uses(cond),
+    "<x>" in uses(e), 
     Value old := lookup(ui, y);
 
 Stmt q2stmt((Question)`if (<Expr cond>) <Label _> <Id y>: <Type _> = <Expr e>`, UI ui, Id x)
   = (Stmt)`{vis(<Id y>, <Expr cond>)}`
   when
-    x in uses(cond), x notin uses(e);
+    "<x>" in uses(cond), "<x>" notin uses(e);
 
 Stmt q2stmt((Question)`if (<Expr cond>) <Label _> <Id y>: <Type _> = <Expr e>`, UI ui, Id x)
   = (Stmt)`{val(<Id y>, <Expr e>, <Value old>)}`
   when
-    x in uses(e), x notin uses(cond),
+    "<x>" in uses(e), "<x>" notin uses(cond),
     Value old := lookup(ui, y);
     
 default Stmt q2stmt(Question _, UI _, Id _) = (Stmt)`{}`;
 
-set[Id] uses(Expr e) = { x | /Id x := e };
+set[str] uses(Expr e) = { "<x>" | /Id x := e };
   
 Conf initialConf(f:(Form)`form <Id _> { <Question* qs> }`, Stmt stmt, UI ui = initialUI(f))
   =  (Conf)`<UI ui>, {<Question* qs>} ⊢ <Stmt stmt>`;
@@ -148,6 +149,11 @@ void redexSteps(Conf c, str indent = "") {
     redexSteps(sub, indent = indented(" ", "│"));
     i += 1;
   }
+}
+
+void runSimpleSetC() {
+  runSimple((Stmt)`update(c, 10)`);
+
 }
 
 void runSimple(Stmt stm, Form form = simpleExample()) {

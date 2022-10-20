@@ -2,7 +2,7 @@ module lang::credex::demo::imp::Contexts
 
 extend lang::credex::demo::imp::Syntax;
 
-syntax State = "[" {VarInt ","}* "]";
+syntax State = "[" {VarInt ","}* pairs "]";
 syntax VarInt = Id "↦" Int;
 syntax Conf = conf: State "⊢" Stmt;
 

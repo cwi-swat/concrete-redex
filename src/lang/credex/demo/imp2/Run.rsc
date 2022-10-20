@@ -1,6 +1,9 @@
 module lang::credex::demo::imp2::Run
 
 import lang::credex::demo::imp2::Semantics;
+import lang::credex::demo::imp2::Conf;
+import lang::credex::demo::imp2::Syntax;
+import IO;
 
 R reduceImp(Conf c) = reduce(#C, #Conf, red, c, {"leq", "seq1", "seq2", "if-true",
   "if-false", "lookup", "assign", "add", "div", "while", "not-false",
@@ -13,6 +16,30 @@ RR applyImp(Conf c) = apply(#C, #Conf, red, c, {"leq", "seq1", "seq2", "if-true"
 
 TR traceImp(Conf c, bool debug=false) = trace(applyImp, c, debug=debug); 
 
+
+void redexStepsImp(Conf e) {
+  println("<e>");
+  redexStepsImp_(e);
+}
+
+void redexStepsImp_(Conf e, str indent = "") {
+  //println("E: <e>");
+  if ((Conf)`<State _> ⊢ skip` := e) {
+    return;
+  }
+
+  RR rr = applyImp(e);
+  int i = 0;
+
+  str indented(str last, str other) 
+    = "<indent> <i == size(rr) - 1 ? last : other> ";
+    
+  for (<str rule, Conf sub> <- rr) {
+    println("<indented("└─", "├─")><e> \u001b[34m─<rule>→\u001b[0m <sub>");
+    redexStepsImp_(sub, indent = indented(" ", "│"));
+    i += 1;
+  }
+}
 
 Conf example() 
   = (Conf)`[x ↦ 0, y ↦ 0] ⊢ 
